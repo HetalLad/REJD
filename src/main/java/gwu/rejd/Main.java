@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import gwu.rejd.extractor.ProjectModelBuilder;
+import gwu.rejd.model.ProjectModel;
 
 /**
  * Entry point for the REJD AST Parser.
@@ -70,6 +72,18 @@ public class Main {
 
         // --- Parse ---
         CompilationUnit cu = (CompilationUnit) parser.createAST(null);
+        
+        ProjectModelBuilder b = new ProjectModelBuilder();
+        ProjectModel model = b.build("rejd-demo", cu);
+
+        System.out.println("----- PROJECT MODEL -----");
+        System.out.println("Package : " + model.getPackageName());
+        System.out.println("Imports : " + model.getImports().size());
+        model.getImports().forEach(i -> System.out.println("  " + i));
+
+        System.out.println("Types   : " + model.getTypesByFqn().size());
+        model.getTypesByFqn().keySet().forEach(fqn -> System.out.println("  " + fqn));
+        System.out.println("-------------------------");
 
         // --- Collect diagnostics ---
         List<String> errors = new ArrayList<>();
