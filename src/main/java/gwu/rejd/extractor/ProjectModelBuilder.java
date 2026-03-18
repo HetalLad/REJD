@@ -30,11 +30,11 @@ public final class ProjectModelBuilder {
     // Visit top-level types in this compilation unit
     for (Object t : cu.types()) {
       if (t instanceof TypeDeclaration) {
-        TypeModel tm = buildTypeFromTypeDecl((TypeDeclaration) t, packageName, null);
+        TypeModel tm = buildTypeFromTypeDecl((TypeDeclaration) t, packageName, null, typesByFqn, root);
         typesByFqn.put(tm.getFqn(), tm);
         addToPackageTree(root, tm.getPackageName(), tm.getFqn());
       } else if (t instanceof EnumDeclaration) {
-        TypeModel tm = buildTypeFromEnumDecl((EnumDeclaration) t, packageName, null);
+        TypeModel tm = buildTypeFromEnumDecl((EnumDeclaration) t, packageName, null, typesByFqn, root);
         typesByFqn.put(tm.getFqn(), tm);
         addToPackageTree(root, tm.getPackageName(), tm.getFqn());
       }
@@ -46,7 +46,8 @@ public final class ProjectModelBuilder {
 
   // ------------------ Type Builders ------------------
 
-  private TypeModel buildTypeFromTypeDecl(TypeDeclaration td, String packageName, String parentTypeFqn) {
+  private TypeModel buildTypeFromTypeDecl(TypeDeclaration td, String packageName,
+      String parentTypeFqn, Map<String, TypeModel> typesByFqn, PackageNode root) {
     String simple = td.getName().getIdentifier();
     String fqn = buildTypeFqn(packageName, parentTypeFqn, simple);
     TypeKind kind = td.isInterface() ? TypeKind.INTERFACE : TypeKind.CLASS;
@@ -66,11 +67,24 @@ public final class ProjectModelBuilder {
     List<MethodModel> methods = new ArrayList<>();
     for (MethodDeclaration md : td.getMethods()) methods.add(buildMethod(fqn, md));
 
-    // Nested types are skipped for now — can be wired in later if needed
+    // Recursively register nested types
+    for (Object member : td.bodyDeclarations()) {
+      if (member instanceof TypeDeclaration) {
+        TypeModel nested = buildTypeFromTypeDecl((TypeDeclaration) member, packageName, fqn, typesByFqn, root);
+        typesByFqn.put(nested.getFqn(), nested);
+        addToPackageTree(root, nested.getPackageName(), nested.getFqn());
+      } else if (member instanceof EnumDeclaration) {
+        TypeModel nested = buildTypeFromEnumDecl((EnumDeclaration) member, packageName, fqn, typesByFqn, root);
+        typesByFqn.put(nested.getFqn(), nested);
+        addToPackageTree(root, nested.getPackageName(), nested.getFqn());
+      }
+    }
+
     return new TypeModel(fqn, simple, packageName, kind, vis, mods, ann, superclass, interfaces, fields, methods);
   }
 
-  private TypeModel buildTypeFromEnumDecl(EnumDeclaration ed, String packageName, String parentTypeFqn) {
+  private TypeModel buildTypeFromEnumDecl(EnumDeclaration ed, String packageName,
+      String parentTypeFqn, Map<String, TypeModel> typesByFqn, PackageNode root) {
     String simple = ed.getName().getIdentifier();
     String fqn = buildTypeFqn(packageName, parentTypeFqn, simple);
 
@@ -89,7 +103,13 @@ public final class ProjectModelBuilder {
       if (bd instanceof FieldDeclaration) fields.addAll(buildFields((FieldDeclaration) bd));
       if (bd instanceof MethodDeclaration) methods.add(buildMethod(fqn, (MethodDeclaration) bd));
       if (bd instanceof TypeDeclaration) {
-        // nested type inside an enum — leaving this for later
+        TypeModel nested = buildTypeFromTypeDecl((TypeDeclaration) bd, packageName, fqn, typesByFqn, root);
+        typesByFqn.put(nested.getFqn(), nested);
+        addToPackageTree(root, nested.getPackageName(), nested.getFqn());
+      } else if (bd instanceof EnumDeclaration) {
+        TypeModel nested = buildTypeFromEnumDecl((EnumDeclaration) bd, packageName, fqn, typesByFqn, root);
+        typesByFqn.put(nested.getFqn(), nested);
+        addToPackageTree(root, nested.getPackageName(), nested.getFqn());
       }
     }
 

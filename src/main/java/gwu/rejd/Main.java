@@ -16,7 +16,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import gwu.rejd.extractor.ProjectModelBuilder;
+import gwu.rejd.extractor.RelationshipExtractor;
+import gwu.rejd.generator.DiagramRenderer;
+import gwu.rejd.generator.PlantUmlClassDiagramGenerator;
+import gwu.rejd.generator.PlantUmlSequenceDiagramGenerator;
 import gwu.rejd.model.ProjectModel;
+import gwu.rejd.model.RelationshipModel;
 
 /**
  * Entry point for the REJD AST Parser.
@@ -123,6 +128,31 @@ public class Main {
             System.out.println("\nParse errors:");
             errors.forEach(e -> System.out.println("  " + e));
         }
+
+        // --- Diagram pipeline ---
+        Path outputDir = Paths.get("output").toAbsolutePath();
+        Files.createDirectories(outputDir);
+
+        // Step 1: extract relationships
+        List<RelationshipModel> relationships = new RelationshipExtractor().extract(model);
+
+        // Step 2: class diagram
+        String classDiagramUml = new PlantUmlClassDiagramGenerator().generate(model, relationships);
+        System.out.println("\n===== CLASS DIAGRAM PlantUML =====");
+        System.out.println(classDiagramUml);
+        Path classDiagramPath = outputDir.resolve("class-diagram.png");
+        new DiagramRenderer().render(classDiagramUml, classDiagramPath);
+        System.out.println("Class diagram written to: " + classDiagramPath);
+
+        // Step 3: sequence diagram
+        String sequenceMethodId = "gwu.samples.Library#checkout(String):void";
+        String sequenceDiagramUml = new PlantUmlSequenceDiagramGenerator()
+                .generate(model, cu, sequenceMethodId);
+        System.out.println("\n===== SEQUENCE DIAGRAM PlantUML =====");
+        System.out.println(sequenceDiagramUml);
+        Path sequenceDiagramPath = outputDir.resolve("sequence-diagram.png");
+        new DiagramRenderer().render(sequenceDiagramUml, sequenceDiagramPath);
+        System.out.println("Sequence diagram written to: " + sequenceDiagramPath);
     }
 
     // -------------------------------------------------------------------------
