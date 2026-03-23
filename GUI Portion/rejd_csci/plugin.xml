@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension point="org.eclipse.ui.startup">
+	   <startup class="rejd_csci.StartupLogin"/>
+   </extension>
+   <extension
+         point="org.eclipse.ui.views">
+      <view
+         id="rejd_csci.views.DiagramView"
+         name="UML Diagram"
+         class="rejd_csci.DiagramView">
+   	  </view>
+   </extension>
+
+</plugin>
