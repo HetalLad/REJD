@@ -13,7 +13,7 @@ public final class ProjectModelBuilder {
     String packageName =
         (cu.getPackage() != null) ? cu.getPackage().getName().getFullyQualifiedName() : "";
 
-    // Grab all import statements from this file, including static and wildcard ones
+    // This will grab all import statements from this file, including static and wildcard ones.
     List<String> imports = new ArrayList<>();
     for (Object impObj : cu.imports()) {
       ImportDeclaration imp = (ImportDeclaration) impObj;
@@ -23,11 +23,11 @@ public final class ProjectModelBuilder {
       imports.add(name);
     }
 
-    // Walk through the top-level types and build a map of FQN -> TypeModel
+    // This will walk through the top-level types and build a map of FQN to TypeModel.
     Map<String, TypeModel> typesByFqn = new LinkedHashMap<>();
     PackageNode root = new PackageNode("");
 
-    // Visit top-level types in this compilation unit
+    // Here we visit all top level ones in the current compilation note.
     for (Object t : cu.types()) {
       if (t instanceof TypeDeclaration) {
         TypeModel tm = buildTypeFromTypeDecl((TypeDeclaration) t, packageName, null, typesByFqn, root);
@@ -40,11 +40,11 @@ public final class ProjectModelBuilder {
       }
     }
 
-    //ProjectModel now expects (projectId, packageName, imports, root, typesByFqn)
+    //This because ProjectModel now expects (projectId, packageName, imports, root, typesByFqn).
     return new ProjectModel(projectId, packageName, imports, root, typesByFqn);
   }
 
-  // ------------------ Type Builders ------------------
+  // The main Type Builders.
 
   private TypeModel buildTypeFromTypeDecl(TypeDeclaration td, String packageName,
       String parentTypeFqn, Map<String, TypeModel> typesByFqn, PackageNode root) {
@@ -67,7 +67,7 @@ public final class ProjectModelBuilder {
     List<MethodModel> methods = new ArrayList<>();
     for (MethodDeclaration md : td.getMethods()) methods.add(buildMethod(fqn, md));
 
-    // Recursively register nested types
+    // Here we recursively register nested types.
     for (Object member : td.bodyDeclarations()) {
       if (member instanceof TypeDeclaration) {
         TypeModel nested = buildTypeFromTypeDecl((TypeDeclaration) member, packageName, fqn, typesByFqn, root);
@@ -95,7 +95,7 @@ public final class ProjectModelBuilder {
     List<String> interfaces = new ArrayList<>();
     for (Object it : ed.superInterfaceTypes()) interfaces.add(it.toString());
 
-    // Enums can have fields, methods, and even nested types in their body
+    // The Enums can have fields, methods, and even nested types in their body.
     List<FieldModel> fields = new ArrayList<>();
     List<MethodModel> methods = new ArrayList<>();
 
@@ -116,7 +116,7 @@ public final class ProjectModelBuilder {
     return new TypeModel(fqn, simple, packageName, TypeKind.ENUM, vis, mods, ann, null, interfaces, fields, methods);
   }
 
-  //  Members 
+  //  The current members.
 
   private List<FieldModel> buildFields(FieldDeclaration fd) {
     Visibility vis = visibilityFromModifiers(fd.getModifiers());
@@ -124,7 +124,7 @@ public final class ProjectModelBuilder {
     List<String> ann = annotationStrings(fd.modifiers());
     String type = fd.getType().toString();
     
-    // A single FieldDeclaration can declare multiple variables (e.g. "int x, y;")
+    // A single FieldDeclaration can declare multiple variables like "int x, y;".
     List<FieldModel> out = new ArrayList<>();
     for (Object frag : fd.fragments()) {
       VariableDeclarationFragment vdf = (VariableDeclarationFragment) frag;
@@ -140,13 +140,13 @@ public final class ProjectModelBuilder {
 
     boolean isCtor = md.isConstructor();
     String name = md.getName().getIdentifier();
-    // Constructors don't have a return type, and getReturnType2() can be null in edge cases
+    // This is because constructors don't have a return type, and getReturnType2() can be null in edge cases.
     String returnType = isCtor ? "" : (md.getReturnType2() == null ? "void" : md.getReturnType2().toString());
 
     List<ParamModel> params = new ArrayList<>();
     for (Object p : md.parameters()) {
       SingleVariableDeclaration svd = (SingleVariableDeclaration) p;
-      // Append "..." for varargs so the signature stays accurate
+      // Here we Append "..." for varargs so the signature stays accurate.
       String pType = svd.getType().toString() + (svd.isVarargs() ? "..." : "");
       params.add(new ParamModel(svd.getName().getIdentifier(), pType));
     }
@@ -155,7 +155,7 @@ public final class ProjectModelBuilder {
     return new MethodModel(methodId, name, returnType, params, vis, mods, ann, isCtor);
   }
 
-  //  Helpers 
+  //  Updated Helpers.
 
   private String buildTypeFqn(String packageName, String parentTypeFqn, String simpleName) {
     String base = (packageName == null || packageName.isBlank()) ? "" : packageName + ".";
@@ -168,7 +168,6 @@ public final class ProjectModelBuilder {
   private void addToPackageTree(PackageNode root, String packageName, String typeFqn) {
     PackageNode node = root;
     if (packageName != null && !packageName.isBlank()) {
-      // Split on dots and walk (or create) each segment of the package path
       for (String seg : packageName.split("\\.")) {
         node = node.getOrCreateChild(seg);
       }
@@ -176,7 +175,7 @@ public final class ProjectModelBuilder {
     node.addType(typeFqn);
   }
 
-  // Using the fully qualified name here to avoid a clash with our own enums package import
+  // Here we use the fully qualified name here to avoid a clash with our own enums package import.
   private Visibility visibilityFromModifiers(int flags) {
     if (org.eclipse.jdt.core.dom.Modifier.isPublic(flags)) return Visibility.PUBLIC;
     if (org.eclipse.jdt.core.dom.Modifier.isProtected(flags)) return Visibility.PROTECTED;
@@ -184,7 +183,7 @@ public final class ProjectModelBuilder {
     return Visibility.PACKAGE_PRIVATE;
   }
 
-  //Same here — fully qualifying Modifier to avoid the ambiguity
+  //We do the same here by fully qualifying Modifier to avoid the ambiguity.
   private Set<String> modifierKeywords(int flags) {
     Set<String> s = new LinkedHashSet<>();
     if (org.eclipse.jdt.core.dom.Modifier.isStatic(flags)) s.add("static");
@@ -201,7 +200,7 @@ public final class ProjectModelBuilder {
   private List<String> annotationStrings(List<?> modifiersAndAnnotations) {
     List<String> out = new ArrayList<>();
     for (Object o : modifiersAndAnnotations) {
-      if (o instanceof Annotation) out.add(o.toString()); // e.g. @Override, @Deprecated
+      if (o instanceof Annotation) out.add(o.toString()); 
     }
     return out;
   }
@@ -213,7 +212,7 @@ public final class ProjectModelBuilder {
       String returnType,
       boolean isCtor
   ) {
-	// Build a signature like: com.example.Foo#doThing(int,String):void
+	// Finally we build a signature like: com.example.Foo.
     StringBuilder sb = new StringBuilder();
     sb.append(ownerTypeFqn).append("#").append(isCtor ? "<init>" : name).append("(");
     for (int i = 0; i < params.size(); i++) {

@@ -11,20 +11,39 @@
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <javafx.version>11.0.2</javafx.version>
   </properties>
 
   <dependencies>
-    <!-- Eclipse JDT Core — provides ASTParser, ASTVisitor, CompilationUnit, etc. -->
     <dependency>
       <groupId>org.eclipse.jdt</groupId>
       <artifactId>org.eclipse.jdt.core</artifactId>
       <version>3.37.0</version>
     </dependency>
+
     <dependency>
-  <groupId>net.sourceforge.plantuml</groupId>
-  <artifactId>plantuml</artifactId>
-  <version>1.2024.3</version>
-</dependency>
+      <groupId>net.sourceforge.plantuml</groupId>
+      <artifactId>plantuml</artifactId>
+      <version>1.2024.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-fxml</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-web</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -39,21 +58,27 @@
         </configuration>
       </plugin>
 
-      <!--
-        Run with default sample:  mvn exec:java
-        Run with custom file:     mvn exec:java -Dexec.args="path/to/YourFile.java"
-      -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.3.0</version>
         <configuration>
-          <mainClass>gwu.rejd.Main</mainClass>
+          <mainClass>gwu.rejd.gui.RejdApp</mainClass>
           <arguments>
             <argument>src/samples/Sample.java</argument>
           </arguments>
         </configuration>
       </plugin>
+      
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <configuration>
+          <mainClass>gwu.rejd.gui.RejdApp</mainClass>
+        </configuration>
+      </plugin>
+      
     </plugins>
   </build>
 </project>
