@@ -4,5 +4,7 @@ public enum RelationshipKind {
     EXTENDS,
     IMPLEMENTS,
     USES,
+    ASSOCIATES,
+    AGGREGATES,
     COMPOSES
 }
