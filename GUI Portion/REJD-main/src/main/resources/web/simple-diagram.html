@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #eef1f6;
+    }
+
+    #canvas {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+      background:
+        linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    #status {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d7dce5;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #2c3e50;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+	.node-shadow {
+	  fill: rgba(0,0,0,0.10);
+	  rx: 14;
+	  ry: 14;
+	}
+
+	.node-body {
+	  fill: #fff9cc; /* light yellow */
+	  stroke: #6c63ff;
+	  stroke-width: 2;
+	  rx: 14;
+	  ry: 14;
+	}
+
+	.node-header {
+	  fill: #ede4ff; /* light purple */
+	  stroke: #6c63ff;
+	  stroke-width: 2;
+	  rx: 14;
+	  ry: 14;
+	}
+
+	.node-title {
+	  font-size: 15px;
+	  font-weight: 700;
+	  fill: #2f2f44;
+	}
+
+	.node-divider {
+	  stroke: #cfc5ff;
+	  stroke-width: 1.5;
+	}
+
+	.node-text {
+	  font-size: 12px;
+	  fill: #4c5670;
+	}
+
+	.edge {
+	  stroke-width: 2.4;
+	  fill: none;
+	}
+
+	.edge-label {
+	  font-size: 11px;
+	  fill: #374151;
+	  font-weight: 700;
+	  
+	}
+	
+	.contextMenu {
+		background-color: #ffffff;
+		border: 1px solid #cccccc;
+		box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.1);
+		display: none;
+		padding: 10px 0;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 200px;
+		z-index: 2000;
+    }
+	
+	.contextMenuItem {
+	    cursor: pointer;
+	    padding: 8px 15px;
+		background-color: #f8f8f8;
+	}
+	
+	#delNote {
+		display: none;
+	}
+  </style>
+</head>
+<body>
+  <div class = "contextMenu"> 
+	<div class = "contextMenuItem"> Add Note </div>
+	<div class = "contextMenuItem" id = "delNote"> Delete Note </div>
+  </div>
+  <div id="canvas">
+    <div id="status">Rendered successfully. Drag nodes. Ctrl + wheel zoom.</div>
+
+    <svg id="svg" viewBox="0 0 2400 1600">
+		<defs>
+		  <marker id="arrow-solid" markerWidth="14" markerHeight="14" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+		    <path d="M0,0 L0,12 L12,6 z" fill="#586070"></path>
+		  </marker>
+
+		  <marker id="arrow-open" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="userSpaceOnUse">
+		    <path d="M2,2 L14,8 L2,14" fill="none" stroke="#586070" stroke-width="2"></path>
+		  </marker>
+
+		  <marker id="diamond-solid" markerWidth="18" markerHeight="18" refX="9" refY="9" orient="auto" markerUnits="userSpaceOnUse">
+		    <path d="M9,1 L17,9 L9,17 L1,9 Z" fill="#586070" stroke="#586070"></path>
+		  </marker>
+
+		  <marker id="diamond-hollow" markerWidth="18" markerHeight="18" refX="9" refY="9" orient="auto" markerUnits="userSpaceOnUse">
+		    <path d="M9,1 L17,9 L9,17 L1,9 Z" fill="white" stroke="#586070" stroke-width="2"></path>
+		  </marker>
+		</defs>
+      <g id="viewport"></g>
+    </svg>
+  </div>
+
+  <script>
+    let currentZoom = 1.0;
+	let activeNode = null
+	
+	const customMenu = document.querySelector('.contextMenu')
+	function showContextMenu(x,y) {
+	  customMenu.style.display = "block";
+	  customMenu.style.top = y + "px";
+	  customMenu.style.left = x + "px";
+	}
+	
+	function hideContextMenu() {
+	  customMenu.style.display = "none";
+	}
+	
+	window.addEventListener("click", () => {
+	  hideContextMenu();
+	});
+
+    function setStatus(msg) {
+      document.getElementById('status').innerText = msg;
+    }
+
+    function setZoom(scale) {
+      currentZoom = scale;
+      const viewport = document.getElementById('viewport');
+      const panX = viewport.dataset.panX ? parseFloat(viewport.dataset.panX) : 0;
+      const panY = viewport.dataset.panY ? parseFloat(viewport.dataset.panY) : 0;
+      viewport.setAttribute('transform', 'translate(' + panX + ',' + panY + ') scale(' + currentZoom + ')');
+    }
+
+    function estimateNodeHeight(lines) {
+      const titleHeight = 28;
+      const paddingTop = 16;
+      const paddingBottom = 16;
+      const dividerGap = 14;
+      const lineHeight = 16;
+      return paddingTop + titleHeight + dividerGap + (lines.length * lineHeight) + paddingBottom;
+    }
+	
+	function applyEdgeStyle(kind, line) {
+	  line.removeAttribute('stroke-dasharray');
+	  line.removeAttribute('marker-start');
+	  line.removeAttribute('marker-end');
+
+	  switch (kind) {
+	    case 'EXTENDS':
+	      line.setAttribute('stroke', '#3b4252');
+	      line.setAttribute('marker-end', 'url(#arrow-open)');
+	      break;
+
+	    case 'IMPLEMENTS':
+	      line.setAttribute('stroke', '#3b4252');
+	      line.setAttribute('stroke-dasharray', '8 5');
+	      line.setAttribute('marker-end', 'url(#arrow-open)');
+	      break;
+
+	    case 'USES':
+	      line.setAttribute('stroke', '#586070');
+	      line.setAttribute('stroke-dasharray', '4 4');
+	      line.setAttribute('marker-end', 'url(#arrow-solid)');
+	      break;
+
+	    case 'ASSOCIATES':
+	      line.setAttribute('stroke', '#586070');
+	      line.setAttribute('marker-end', 'url(#arrow-solid)');
+	      break;
+
+	    case 'AGGREGATES':
+	      line.setAttribute('stroke', '#586070');
+	      line.setAttribute('marker-start', 'url(#diamond-hollow)');
+	      line.setAttribute('marker-end', 'url(#arrow-solid)');
+	      break;
+
+	    case 'COMPOSES':
+	      line.setAttribute('stroke', '#586070');
+	      line.setAttribute('marker-start', 'url(#diamond-solid)');
+	      line.setAttribute('marker-end', 'url(#arrow-solid)');
+	      break;
+
+	    default:
+	      line.setAttribute('stroke', '#586070');
+	      line.setAttribute('marker-end', 'url(#arrow-solid)');
+	      break;
+	  }
+	}
+	
+	function prettyKindLabel(kind) {
+	  switch (kind) {
+	    case 'EXTENDS': return 'extends';
+	    case 'IMPLEMENTS': return 'implements';
+	    case 'USES': return 'uses';
+	    case 'ASSOCIATES': return 'associates';
+	    case 'AGGREGATES': return 'aggregates';
+	    case 'COMPOSES': return 'composes';
+	    default: return kind.toLowerCase();
+	  }
+	}
+	
+	function getBoundaryPoint(node, dx, dy) {
+	  const cx = node.x + node.width / 2;
+	  const cy = node.y + node.height / 2;
+
+	  const halfW = node.width / 2;
+	  const halfH = node.height / 2;
+
+	  if (dx === 0 && dy === 0) {
+	    return { x: cx, y: cy };
+	  }
+
+	  const absDx = Math.abs(dx);
+	  const absDy = Math.abs(dy);
+
+	  let scale;
+	  if (absDx / halfW > absDy / halfH) {
+	    scale = halfW / absDx;
+	  } else {
+	    scale = halfH / absDy;
+	  }
+
+	  return {
+	    x: cx + dx * scale,
+	    y: cy + dy * scale
+	  };
+	}
+
+    function renderGraph(graph) {
+      try {
+        const svg = document.getElementById('svg');
+        const viewport = document.getElementById('viewport');
+        viewport.innerHTML = '';
+
+        const nodes = {};
+        const width = 280;
+        const cols = 4;
+
+        graph.nodes.forEach(function(n, i) {
+          const memberLines = n.members ? n.members.split('\n').filter(x => x.trim().length > 0) : [];
+          const x = 100 + (i % cols) * 360;
+          const y = 120 + Math.floor(i / cols) * 340;
+          const height = estimateNodeHeight(memberLines);
+
+          nodes[n.id] = {
+            x: x,
+            y: y,
+            width: width,
+            height: height,
+            data: n,
+            memberLines: memberLines
+          };
+        });
+
+        graph.edges.forEach(function(e) {
+          if (!nodes[e.source] || !nodes[e.target]) return;
+
+		  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+		  line.setAttribute('class', 'edge');
+		  line.setAttribute('data-source', e.source);
+		  line.setAttribute('data-target', e.target);
+		  line.setAttribute('data-kind', e.kind);
+
+		  applyEdgeStyle(e.kind, line);
+
+		  viewport.appendChild(line);
+
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.setAttribute('class', 'edge-label');
+          label.setAttribute('data-edge-label', e.source + '->' + e.target);
+		  label.textContent = prettyKindLabel(e.kind);
+          viewport.appendChild(label);
+        });
+
+        Object.keys(nodes).forEach(function(id) {
+          const n = nodes[id];
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node');
+          g.setAttribute('data-id', id);
+          g.setAttribute('transform', 'translate(' + n.x + ',' + n.y + ')');
+
+		  const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+		  shadow.setAttribute('class', 'node-shadow');
+		  shadow.setAttribute('x', 4);
+		  shadow.setAttribute('y', 5);
+		  shadow.setAttribute('width', n.width);
+		  shadow.setAttribute('height', n.height);
+		  g.appendChild(shadow);
+
+		  const body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+		  
+		  body.setAttribute('class', 'node-body');
+		  body.setAttribute('width', n.width);
+		  body.setAttribute('height', n.height);
+		  g.appendChild(body);
+
+		  const header = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+		  header.setAttribute('class', 'node-header');
+		  header.setAttribute('width', n.width);
+		  header.setAttribute('height', 42);
+		  g.appendChild(header);
+
+		  const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+		  title.setAttribute('class', 'node-title');
+		  title.setAttribute('x', 14);
+		  title.setAttribute('y', 27);
+		  title.textContent = n.data.label;
+		  g.appendChild(title);
+
+		  const divider = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+		  divider.setAttribute('class', 'node-divider');
+		  divider.setAttribute('x1', 0);
+		  divider.setAttribute('x2', n.width);
+		  divider.setAttribute('y1', 42);
+		  divider.setAttribute('y2', 42);
+		  g.appendChild(divider);
+
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('class', 'node-text');
+          text.setAttribute('x', 14);
+          text.setAttribute('y', 60);
+
+          n.memberLines.forEach(function(lineText, idx) {
+            const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan.setAttribute('x', 14);
+            tspan.setAttribute('dy', idx === 0 ? 0 : 16);
+            tspan.textContent = lineText;
+            text.appendChild(tspan);
+          });
+
+          g.appendChild(text);
+          viewport.appendChild(g);
+        });
+
+        function updateEdges() {
+          const edgeEls = viewport.querySelectorAll('.edge');
+          edgeEls.forEach(function(edge) {
+            const s = nodes[edge.getAttribute('data-source')];
+            const t = nodes[edge.getAttribute('data-target')];
+            if (!s || !t) return;
+
+			const sx = s.x + s.width / 2;
+			const sy = s.y + s.height / 2;
+			const tx = t.x + t.width / 2;
+			const ty = t.y + t.height / 2;
+
+			const dx = tx - sx;
+			const dy = ty - sy;
+
+			const sourcePoint = getBoundaryPoint(s, dx, dy);
+			const targetPoint = getBoundaryPoint(t, -dx, -dy);
+
+			edge.setAttribute('x1', sourcePoint.x);
+			edge.setAttribute('y1', sourcePoint.y);
+			edge.setAttribute('x2', targetPoint.x);
+			edge.setAttribute('y2', targetPoint.y);
+
+			const label = viewport.querySelector('[data-edge-label="' + edge.getAttribute('data-source') + '->' + edge.getAttribute('data-target') + '"]');
+			if (label) {
+			  const midX = (sourcePoint.x + targetPoint.x) / 2;
+			  const midY = (sourcePoint.y + targetPoint.y) / 2;
+			  label.setAttribute('x', midX + 6);
+			  label.setAttribute('y', midY - 6);
+			}
+          });
+
+          viewport.querySelectorAll('.node').forEach(function(nodeEl) {
+            const id = nodeEl.getAttribute('data-id');
+            const n = nodes[id];
+            nodeEl.setAttribute('transform', 'translate(' + n.x + ',' + n.y + ')');
+          });
+        }
+
+        updateEdges();
+
+        let dragged = null;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        viewport.querySelectorAll('.node').forEach(function(nodeEl) {
+          nodeEl.addEventListener('mousedown', function(e) {
+			if (e.button !== 0) return;
+            const id = nodeEl.getAttribute('data-id');
+            dragged = nodes[id];
+            offsetX = e.clientX - dragged.x;
+            offsetY = e.clientY - dragged.y;
+            e.stopPropagation();
+          });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!dragged) return;
+          dragged.x = e.clientX - offsetX;
+          dragged.y = e.clientY - offsetY;
+          updateEdges();
+        });
+
+        document.addEventListener('mouseup', function() {
+          dragged = null;
+        });
+
+        let pan = { x: 0, y: 0 };
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
+
+        svg.addEventListener('mousedown', function(e) {
+		  if (e.button !== 0) return;
+          if (e.target.closest('.node')) return;
+          isPanning = true;
+          panStart.x = e.clientX - pan.x;
+          panStart.y = e.clientY - pan.y;
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!isPanning) return;
+          pan.x = e.clientX - panStart.x;
+          pan.y = e.clientY - panStart.y;
+          viewport.dataset.panX = pan.x;
+          viewport.dataset.panY = pan.y;
+          viewport.setAttribute('transform', 'translate(' + pan.x + ',' + pan.y + ') scale(' + currentZoom + ')');
+        });
+
+        document.addEventListener('mouseup', function() {
+          isPanning = false;
+        });
+
+        viewport.dataset.panX = 0;
+        viewport.dataset.panY = 0;
+        setZoom(currentZoom);
+        setStatus('Rendered successfully. Drag nodes. Ctrl + wheel zoom.');
+      } catch (e) {
+        setStatus('Render error: ' + e);
+      }
+    }
+  </script>
+</body>
+</html>
