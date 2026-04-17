@@ -12,31 +12,39 @@ public class ClassDiagramView extends BorderPane {
     private final WebView webView = new WebView();
     private double zoomLevel = 1.0;
 
+    // You can later replace this with logged-in user / plugin user
+    private static final String CURRENT_AUTHOR = "AJ";
+
     public ClassDiagramView() {
         setCenter(webView);
         webView.getEngine().setJavaScriptEnabled(true);
         webView.setContextMenuEnabled(false);
-        
+
         webView.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 double x = event.getX();
                 double y = event.getY();
 
-                Object result = webView.getEngine().executeScript(
+                WebEngine engine = webView.getEngine();
+
+                Object nodeIdResult = engine.executeScript(
                     "(function() {" +
                     "  const el = document.elementFromPoint(" + x + ", " + y + ");" +
-                    "  return !!(el && el.closest('.node'));" +
+                    "  const node = el && el.closest('.node');" +
+                    "  return node ? node.getAttribute('data-id') : null;" +
                     "})()"
                 );
 
-                boolean clickedNode = Boolean.TRUE.equals(result);
+                String clickedNodeId = nodeIdResult == null ? null : nodeIdResult.toString();
 
-                if (clickedNode) {
-                    webView.getEngine().executeScript(
-                        "showContextMenu(" + x + ", " + y + ");"
+                if (clickedNodeId != null && !clickedNodeId.isBlank()) {
+                    String escapedNodeId = escapeJs(clickedNodeId);
+                    engine.executeScript(
+                        "showContextMenu(" + x + ", " + y + ", '" + escapedNodeId + "');"
                     );
                 } else {
-                    webView.getEngine().executeScript("hideContextMenu();");
+                    engine.executeScript("hideContextMenu();");
+                    engine.executeScript("hideNoteDialog();");
                 }
 
                 event.consume();
@@ -67,6 +75,7 @@ public class ClassDiagramView extends BorderPane {
         engine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
             if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
                 try {
+                    engine.executeScript("setCurrentAuthor('" + escapeJs(CURRENT_AUTHOR) + "');");
                     engine.executeScript("renderGraph(" + graphJson + ");");
                     engine.executeScript("setZoom(" + zoomLevel + ");");
                 } catch (Exception e) {
@@ -88,5 +97,12 @@ public class ClassDiagramView extends BorderPane {
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
+    }
+
+    private String escapeJs(String text) {
+        return text
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\"", "\\\"");
     }
 }

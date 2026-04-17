@@ -45,128 +45,345 @@
       cursor: grab;
     }
 
-	.node-shadow {
-	  fill: rgba(0,0,0,0.10);
-	  rx: 14;
-	  ry: 14;
-	}
-
-	.node-body {
-	  fill: #fff9cc; /* light yellow */
-	  stroke: #6c63ff;
-	  stroke-width: 2;
-	  rx: 14;
-	  ry: 14;
-	}
-
-	.node-header {
-	  fill: #ede4ff; /* light purple */
-	  stroke: #6c63ff;
-	  stroke-width: 2;
-	  rx: 14;
-	  ry: 14;
-	}
-
-	.node-title {
-	  font-size: 15px;
-	  font-weight: 700;
-	  fill: #2f2f44;
-	}
-
-	.node-divider {
-	  stroke: #cfc5ff;
-	  stroke-width: 1.5;
-	}
-
-	.node-text {
-	  font-size: 12px;
-	  fill: #4c5670;
-	}
-
-	.edge {
-	  stroke-width: 2.4;
-	  fill: none;
-	}
-
-	.edge-label {
-	  font-size: 11px;
-	  fill: #374151;
-	  font-weight: 700;
-	  
-	}
-	
-	.contextMenu {
-		background-color: #ffffff;
-		border: 1px solid #cccccc;
-		box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.1);
-		display: none;
-		padding: 10px 0;
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 200px;
-		z-index: 2000;
+    .node-shadow {
+      fill: rgba(0,0,0,0.10);
+      rx: 14;
+      ry: 14;
     }
-	
-	.contextMenuItem {
-	    cursor: pointer;
-	    padding: 8px 15px;
-		background-color: #f8f8f8;
+
+    .node-body {
+      fill: #fff9cc;
+      stroke: #6c63ff;
+      stroke-width: 2;
+      rx: 14;
+      ry: 14;
+    }
+
+    .node-header {
+      fill: #ede4ff;
+      stroke: #6c63ff;
+      stroke-width: 2;
+      rx: 14;
+      ry: 14;
+    }
+
+    .node-title {
+      font-size: 15px;
+      font-weight: 700;
+      fill: #2f2f44;
+    }
+
+    .node-divider {
+      stroke: #cfc5ff;
+      stroke-width: 1.5;
+    }
+
+    .node-text {
+      font-size: 12px;
+      fill: #4c5670;
+    }
+
+    .edge {
+      stroke-width: 2.4;
+      fill: none;
+    }
+
+    .edge-label {
+      font-size: 11px;
+      fill: #374151;
+      font-weight: 700;
+    }
+
+    .contextMenu {
+      background-color: #ffffff;
+      border: 1px solid #cccccc;
+      box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.1);
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 200px;
+      z-index: 2000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .contextMenuItem {
+      cursor: pointer;
+      padding: 10px 14px;
+      background-color: #f8f8f8;
+      font-size: 14px;
+    }
+
+    .contextMenuItem:hover {
+      background-color: #ececec;
+    }
+
+    .noteDialog {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 320px;
+      background: white;
+      border: 1px solid #cfd6e0;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+      z-index: 2500;
+      padding: 14px;
+    }
+
+    .noteDialogTitle {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #2f2f44;
+    }
+
+    .noteDialogMeta {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+
+    .noteInput {
+      width: 100%;
+      min-height: 90px;
+      resize: vertical;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 10px;
+      border: 1px solid #d5dbe3;
+      border-radius: 8px;
+      box-sizing: border-box;
+      margin-bottom: 12px;
+    }
+
+    .noteDialogActions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .noteBtn {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .noteBtnCancel {
+      background: #eceff3;
+      color: #374151;
+    }
+
+    .noteBtnSave {
+      background: #6c63ff;
+      color: white;
+    }
+
+    .noteBtn:hover {
+      opacity: 0.92;
+    }
+
+    .note-badge {
+      fill: #6c63ff;
+      stroke: #ffffff;
+      stroke-width: 2;
+      cursor: pointer;
+    }
+
+    .note-badge-text {
+      fill: white;
+      font-size: 11px;
+      font-weight: 700;
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+	.floating-note-panel {
+	  position: absolute;
+	  width: 260px;
+	  min-height: 140px;
+	  background: #fffef7;
+	  border: 1px solid #ddd3aa;
+	  border-radius: 14px;
+	  box-shadow: 0 10px 26px rgba(0,0,0,0.16);
+	  z-index: 2600;
+	  overflow: hidden;
 	}
-	
-	#delNote {
-		display: none;
+
+	.floating-note-header {
+	  background: linear-gradient(to bottom, #f6e9aa, #f1e19a);
+	  padding: 12px 14px;
+	  cursor: move;
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  font-weight: 700;
+	  font-size: 15px;
+	  color: #4a4330;
+	  border-bottom: 1px solid #ddd2a7;
+	  user-select: none;
+	}
+
+	.floating-note-close {
+	  border: none;
+	  background: transparent;
+	  font-size: 17px;
+	  font-weight: 700;
+	  line-height: 1;
+	  cursor: pointer;
+	  color: #6b5f3a;
+	  padding: 2px 6px;
+	  border-radius: 6px;
+	  transition: background 0.18s ease, color 0.18s ease;
+	}
+
+	.floating-note-close:hover {
+	  background: rgba(0,0,0,0.08);
+	  color: #2f2f44;
+	}
+
+	.floating-note-body {
+	  padding: 14px 14px 12px 14px;
+	  font-size: 13px;
+	  color: #374151;
+	  white-space: pre-wrap;
+	  line-height: 1.45;
+	}
+
+	.floating-note-meta {
+	  margin-top: 12px;
+	  font-size: 11px;
+	  color: #6b7280;
+	  border-top: 1px dashed #d7cfa9;
+	  padding-top: 10px;
+	  line-height: 1.5;
+	}
+
+	.note-panel-toolbar {
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  gap: 8px;
+	  margin-bottom: 12px;
+	}
+
+	.note-panel-counter {
+	  font-size: 11px;
+	  color: #8a8f9b;
+	  font-weight: 600;
+	  letter-spacing: 0.2px;
+	}
+
+	.note-panel-nav {
+	  display: flex;
+	  gap: 6px;
+	}
+
+	.note-panel-nav-btn {
+	  border: 1px solid #cfc5ff;
+	  background: #f4f1ff;
+	  color: #4b3fb5;
+	  border-radius: 7px;
+	  padding: 5px 10px;
+	  cursor: pointer;
+	  font-size: 12px;
+	  font-weight: 600;
+	  transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+	}
+
+	.note-panel-nav-btn:hover:not(:disabled) {
+	  background: #e9e3ff;
+	  border-color: #b8abff;
+	}
+
+	.note-panel-nav-btn:active:not(:disabled) {
+	  transform: translateY(1px);
+	}
+
+	.note-panel-nav-btn:disabled {
+	  opacity: 0.42;
+	  cursor: default;
+	  background: #f5f5f5;
+	  color: #8b8b8b;
+	  border-color: #dddddd;
 	}
   </style>
 </head>
 <body>
-  <div class = "contextMenu"> 
-	<div class = "contextMenuItem"> Add Note </div>
-	<div class = "contextMenuItem" id = "delNote"> Delete Note </div>
+  <div class="contextMenu" id="contextMenu">
+    <div class="contextMenuItem" id="addNoteMenuItem">Add Note</div>
   </div>
+
+  <div class="noteDialog" id="noteDialog">
+    <div class="noteDialogTitle">Create Note</div>
+    <div class="noteDialogMeta" id="noteDialogMeta"></div>
+    <textarea
+      id="noteInput"
+      class="noteInput"
+      placeholder="Enter note content here..."
+    ></textarea>
+    <div class="noteDialogActions">
+      <button class="noteBtn noteBtnCancel" id="cancelNoteBtn" type="button">Cancel</button>
+      <button class="noteBtn noteBtnSave" id="saveNoteBtn" type="button">Save</button>
+    </div>
+  </div>
+
   <div id="canvas">
     <div id="status">Rendered successfully. Drag nodes. Ctrl + wheel zoom.</div>
 
     <svg id="svg" viewBox="0 0 2400 1600">
-		<defs>
-		  <marker id="arrow-solid" markerWidth="14" markerHeight="14" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse">
-		    <path d="M0,0 L0,12 L12,6 z" fill="#586070"></path>
-		  </marker>
+      <defs>
+        <marker id="arrow-solid" markerWidth="14" markerHeight="14" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M0,0 L0,12 L12,6 z" fill="#586070"></path>
+        </marker>
 
-		  <marker id="arrow-open" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="userSpaceOnUse">
-		    <path d="M2,2 L14,8 L2,14" fill="none" stroke="#586070" stroke-width="2"></path>
-		  </marker>
+        <marker id="arrow-open" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M2,2 L14,8 L2,14" fill="none" stroke="#586070" stroke-width="2"></path>
+        </marker>
 
-		  <marker id="diamond-solid" markerWidth="18" markerHeight="18" refX="9" refY="9" orient="auto" markerUnits="userSpaceOnUse">
-		    <path d="M9,1 L17,9 L9,17 L1,9 Z" fill="#586070" stroke="#586070"></path>
-		  </marker>
+        <marker id="diamond-solid" markerWidth="18" markerHeight="18" refX="9" refY="9" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M9,1 L17,9 L9,17 L1,9 Z" fill="#586070" stroke="#586070"></path>
+        </marker>
 
-		  <marker id="diamond-hollow" markerWidth="18" markerHeight="18" refX="9" refY="9" orient="auto" markerUnits="userSpaceOnUse">
-		    <path d="M9,1 L17,9 L9,17 L1,9 Z" fill="white" stroke="#586070" stroke-width="2"></path>
-		  </marker>
-		</defs>
+        <marker id="diamond-hollow" markerWidth="18" markerHeight="18" refX="9" refY="9" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M9,1 L17,9 L9,17 L1,9 Z" fill="white" stroke="#586070" stroke-width="2"></path>
+        </marker>
+      </defs>
       <g id="viewport"></g>
     </svg>
   </div>
 
   <script>
     let currentZoom = 1.0;
-	let activeNode = null
-	
-	const customMenu = document.querySelector('.contextMenu')
-	function showContextMenu(x,y) {
-	  customMenu.style.display = "block";
-	  customMenu.style.top = y + "px";
-	  customMenu.style.left = x + "px";
-	}
-	
-	function hideContextMenu() {
-	  customMenu.style.display = "none";
-	}
-	
-	window.addEventListener("click", () => {
-	  hideContextMenu();
-	});
+    let currentAuthor = "Unknown Author";
+
+    let activeNodeId = null;
+    let noteDialogAnchor = { x: 0, y: 0 };
+
+    const notesByNode = {};
+    const panelPositionsByNode = {};
+    const openPanelsByNode = {};
+    const nodeAnchors = {};
+
+    let lastRenderedGraph = null;
+
+    const customMenu = document.getElementById('contextMenu');
+    const addNoteMenuItem = document.getElementById('addNoteMenuItem');
+
+    const noteDialog = document.getElementById('noteDialog');
+    const noteInput = document.getElementById('noteInput');
+    const noteDialogMeta = document.getElementById('noteDialogMeta');
+    const saveNoteBtn = document.getElementById('saveNoteBtn');
+    const cancelNoteBtn = document.getElementById('cancelNoteBtn');
+
+    function setCurrentAuthor(name) {
+      currentAuthor = name && name.trim() ? name.trim() : "Unknown Author";
+    }
 
     function setStatus(msg) {
       document.getElementById('status').innerText = msg;
@@ -180,6 +397,267 @@
       viewport.setAttribute('transform', 'translate(' + panX + ',' + panY + ') scale(' + currentZoom + ')');
     }
 
+    function showContextMenu(x, y, nodeId) {
+      activeNodeId = nodeId;
+      noteDialogAnchor = { x, y };
+      hideNoteDialog();
+
+      customMenu.style.display = "block";
+      customMenu.style.top = y + "px";
+      customMenu.style.left = x + "px";
+    }
+
+    function hideContextMenu() {
+      customMenu.style.display = "none";
+    }
+
+    function showNoteDialog() {
+      if (!activeNodeId) return;
+
+      hideContextMenu();
+
+      noteDialogMeta.textContent = "Component: " + activeNodeId + " | Author: " + currentAuthor;
+      noteInput.value = "";
+
+      const anchor = getDefaultPanelPosition(activeNodeId);
+      noteDialog.style.display = "block";
+      noteDialog.style.top = anchor.y + "px";
+      noteDialog.style.left = anchor.x + "px";
+
+      noteInput.focus();
+    }
+
+    function hideNoteDialog() {
+      noteDialog.style.display = "none";
+    }
+
+    function getDefaultPanelPosition(nodeId) {
+      if (panelPositionsByNode[nodeId]) {
+        return panelPositionsByNode[nodeId];
+      }
+
+      if (nodeAnchors[nodeId]) {
+        return {
+          x: nodeAnchors[nodeId].x + 24,
+          y: nodeAnchors[nodeId].y + 24
+        };
+      }
+
+      return {
+        x: noteDialogAnchor.x + 8,
+        y: noteDialogAnchor.y + 8
+      };
+    }
+
+    function saveNote() {
+      if (!activeNodeId) return;
+
+      const content = noteInput.value.trim();
+      if (!content) {
+        setStatus("Note not saved: content is empty.");
+        return;
+      }
+
+      const timestamp = new Date().toLocaleString();
+
+      const note = {
+        content: content,
+        author: currentAuthor,
+        timestamp: timestamp
+      };
+
+      if (!notesByNode[activeNodeId]) {
+        notesByNode[activeNodeId] = [];
+      }
+
+      notesByNode[activeNodeId].push(note);
+
+      setStatus(
+        'Saved note for "' + activeNodeId + '" by ' + currentAuthor + ' at ' + timestamp
+      );
+
+      hideNoteDialog();
+
+      if (lastRenderedGraph) {
+        renderGraph(lastRenderedGraph);
+      }
+
+      openNotePanel(activeNodeId);
+    }
+	
+	function renderNotePanelContent(panel, nodeId, noteIndex) {
+	  const notes = notesByNode[nodeId];
+	  if (!notes || notes.length === 0) return;
+
+	  const safeIndex = Math.max(0, Math.min(noteIndex, notes.length - 1));
+	  const note = notes[safeIndex];
+
+	  panel.dataset.noteIndex = String(safeIndex);
+
+	  const body = panel.querySelector(".floating-note-body");
+	  body.innerHTML = `
+	    <div class="note-panel-toolbar">
+	      <div class="note-panel-counter">Note ${safeIndex + 1} of ${notes.length}</div>
+	      <div class="note-panel-nav">
+	        <button class="note-panel-nav-btn prev-note-btn" type="button" ${safeIndex === 0 ? "disabled" : ""}>Previous</button>
+	        <button class="note-panel-nav-btn next-note-btn" type="button" ${safeIndex === notes.length - 1 ? "disabled" : ""}>Next</button>
+	      </div>
+	    </div>
+	    <div>${escapeHtml(note.content)}</div>
+	    <div class="floating-note-meta">
+	      Author: ${escapeHtml(note.author)}<br>
+	      Saved: ${escapeHtml(note.timestamp)}
+	    </div>
+	  `;
+
+	  const prevBtn = body.querySelector(".prev-note-btn");
+	  const nextBtn = body.querySelector(".next-note-btn");
+
+	  prevBtn.addEventListener("click", function(event) {
+	    event.stopPropagation();
+	    renderNotePanelContent(panel, nodeId, safeIndex - 1);
+	  });
+
+	  nextBtn.addEventListener("click", function(event) {
+	    event.stopPropagation();
+	    renderNotePanelContent(panel, nodeId, safeIndex + 1);
+	  });
+	}
+
+	function openNotePanel(nodeId) {
+	  const notes = notesByNode[nodeId];
+	  if (!notes || notes.length === 0) return;
+
+	  if (openPanelsByNode[nodeId]) {
+	    openPanelsByNode[nodeId].style.display = "block";
+	    bringPanelToFront(openPanelsByNode[nodeId]);
+	    renderNotePanelContent(openPanelsByNode[nodeId], nodeId, notes.length - 1);
+	    return;
+	  }
+
+	  const panel = document.createElement("div");
+	  panel.className = "floating-note-panel";
+	  panel.dataset.nodeId = nodeId;
+	  panel.dataset.noteIndex = String(notes.length - 1);
+
+	  const startPos = getDefaultPanelPosition(nodeId);
+	  panel.style.left = startPos.x + "px";
+	  panel.style.top = startPos.y + "px";
+
+	  const header = document.createElement("div");
+	  header.className = "floating-note-header";
+	  header.innerHTML = `
+	    <span>Note: ${escapeHtml(nodeId)}</span>
+	    <button class="floating-note-close" type="button">&times;</button>
+	  `;
+
+	  const body = document.createElement("div");
+	  body.className = "floating-note-body";
+
+	  panel.appendChild(header);
+	  panel.appendChild(body);
+	  document.getElementById("canvas").appendChild(panel);
+
+	  renderNotePanelContent(panel, nodeId, notes.length - 1);
+
+	  openPanelsByNode[nodeId] = panel;
+	  bringPanelToFront(panel);
+
+	  const closeBtn = header.querySelector(".floating-note-close");
+	  closeBtn.addEventListener("click", function(event) {
+	    event.stopPropagation();
+	    panel.style.display = "none";
+	  });
+
+	  makePanelDraggable(panel, header, nodeId);
+
+	  panel.addEventListener("mousedown", function() {
+	    bringPanelToFront(panel);
+	  });
+	}
+
+    function bringPanelToFront(panel) {
+      const panels = document.querySelectorAll(".floating-note-panel");
+      let maxZ = 2600;
+      panels.forEach(function(p) {
+        const z = parseInt(window.getComputedStyle(p).zIndex || "2600", 10);
+        if (z > maxZ) maxZ = z;
+      });
+      panel.style.zIndex = String(maxZ + 1);
+    }
+
+    function makePanelDraggable(panel, handle, nodeId) {
+      let isDragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      handle.addEventListener("mousedown", function(event) {
+        if (event.button !== 0) return;
+        isDragging = true;
+        offsetX = event.clientX - panel.offsetLeft;
+        offsetY = event.clientY - panel.offsetTop;
+        bringPanelToFront(panel);
+        event.preventDefault();
+        event.stopPropagation();
+      });
+
+      document.addEventListener("mousemove", function(event) {
+        if (!isDragging) return;
+
+        const canvas = document.getElementById("canvas");
+        const rect = canvas.getBoundingClientRect();
+
+        let newX = event.clientX - rect.left - offsetX;
+        let newY = event.clientY - rect.top - offsetY;
+
+        newX = Math.max(0, newX);
+        newY = Math.max(0, newY);
+
+        panel.style.left = newX + "px";
+        panel.style.top = newY + "px";
+
+        panelPositionsByNode[nodeId] = { x: newX, y: newY };
+      });
+
+      document.addEventListener("mouseup", function() {
+        isDragging = false;
+      });
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    addNoteMenuItem.addEventListener("click", function(event) {
+      event.stopPropagation();
+      showNoteDialog();
+    });
+
+    saveNoteBtn.addEventListener("click", function(event) {
+      event.stopPropagation();
+      saveNote();
+    });
+
+    cancelNoteBtn.addEventListener("click", function(event) {
+      event.stopPropagation();
+      hideNoteDialog();
+    });
+
+    window.addEventListener("click", function() {
+      hideContextMenu();
+    });
+
+    noteDialog.addEventListener("click", function(event) {
+      event.stopPropagation();
+    });
+
+    customMenu.addEventListener("click", function(event) {
+      event.stopPropagation();
+    });
+
     function estimateNodeHeight(lines) {
       const titleHeight = 28;
       const paddingTop = 16;
@@ -188,98 +666,109 @@
       const lineHeight = 16;
       return paddingTop + titleHeight + dividerGap + (lines.length * lineHeight) + paddingBottom;
     }
-	
-	function applyEdgeStyle(kind, line) {
-	  line.removeAttribute('stroke-dasharray');
-	  line.removeAttribute('marker-start');
-	  line.removeAttribute('marker-end');
 
-	  switch (kind) {
-	    case 'EXTENDS':
-	      line.setAttribute('stroke', '#3b4252');
-	      line.setAttribute('marker-end', 'url(#arrow-open)');
-	      break;
+    function applyEdgeStyle(kind, line) {
+      line.removeAttribute('stroke-dasharray');
+      line.removeAttribute('marker-start');
+      line.removeAttribute('marker-end');
 
-	    case 'IMPLEMENTS':
-	      line.setAttribute('stroke', '#3b4252');
-	      line.setAttribute('stroke-dasharray', '8 5');
-	      line.setAttribute('marker-end', 'url(#arrow-open)');
-	      break;
+      switch (kind) {
+        case 'EXTENDS':
+          line.setAttribute('stroke', '#3b4252');
+          line.setAttribute('marker-end', 'url(#arrow-open)');
+          break;
 
-	    case 'USES':
-	      line.setAttribute('stroke', '#586070');
-	      line.setAttribute('stroke-dasharray', '4 4');
-	      line.setAttribute('marker-end', 'url(#arrow-solid)');
-	      break;
+        case 'IMPLEMENTS':
+          line.setAttribute('stroke', '#3b4252');
+          line.setAttribute('stroke-dasharray', '8 5');
+          line.setAttribute('marker-end', 'url(#arrow-open)');
+          break;
 
-	    case 'ASSOCIATES':
-	      line.setAttribute('stroke', '#586070');
-	      line.setAttribute('marker-end', 'url(#arrow-solid)');
-	      break;
+        case 'USES':
+          line.setAttribute('stroke', '#586070');
+          line.setAttribute('stroke-dasharray', '4 4');
+          line.setAttribute('marker-end', 'url(#arrow-solid)');
+          break;
 
-	    case 'AGGREGATES':
-	      line.setAttribute('stroke', '#586070');
-	      line.setAttribute('marker-start', 'url(#diamond-hollow)');
-	      line.setAttribute('marker-end', 'url(#arrow-solid)');
-	      break;
+        case 'ASSOCIATES':
+          line.setAttribute('stroke', '#586070');
+          line.setAttribute('marker-end', 'url(#arrow-solid)');
+          break;
 
-	    case 'COMPOSES':
-	      line.setAttribute('stroke', '#586070');
-	      line.setAttribute('marker-start', 'url(#diamond-solid)');
-	      line.setAttribute('marker-end', 'url(#arrow-solid)');
-	      break;
+        case 'AGGREGATES':
+          line.setAttribute('stroke', '#586070');
+          line.setAttribute('marker-start', 'url(#diamond-hollow)');
+          line.setAttribute('marker-end', 'url(#arrow-solid)');
+          break;
 
-	    default:
-	      line.setAttribute('stroke', '#586070');
-	      line.setAttribute('marker-end', 'url(#arrow-solid)');
-	      break;
-	  }
-	}
-	
-	function prettyKindLabel(kind) {
-	  switch (kind) {
-	    case 'EXTENDS': return 'extends';
-	    case 'IMPLEMENTS': return 'implements';
-	    case 'USES': return 'uses';
-	    case 'ASSOCIATES': return 'associates';
-	    case 'AGGREGATES': return 'aggregates';
-	    case 'COMPOSES': return 'composes';
-	    default: return kind.toLowerCase();
-	  }
-	}
-	
-	function getBoundaryPoint(node, dx, dy) {
-	  const cx = node.x + node.width / 2;
-	  const cy = node.y + node.height / 2;
+        case 'COMPOSES':
+          line.setAttribute('stroke', '#586070');
+          line.setAttribute('marker-start', 'url(#diamond-solid)');
+          line.setAttribute('marker-end', 'url(#arrow-solid)');
+          break;
 
-	  const halfW = node.width / 2;
-	  const halfH = node.height / 2;
+        default:
+          line.setAttribute('stroke', '#586070');
+          line.setAttribute('marker-end', 'url(#arrow-solid)');
+          break;
+      }
+    }
 
-	  if (dx === 0 && dy === 0) {
-	    return { x: cx, y: cy };
-	  }
+    function prettyKindLabel(kind) {
+      switch (kind) {
+        case 'EXTENDS': return 'extends';
+        case 'IMPLEMENTS': return 'implements';
+        case 'USES': return 'uses';
+        case 'ASSOCIATES': return 'associates';
+        case 'AGGREGATES': return 'aggregates';
+        case 'COMPOSES': return 'composes';
+        default: return kind.toLowerCase();
+      }
+    }
 
-	  const absDx = Math.abs(dx);
-	  const absDy = Math.abs(dy);
+    function getBoundaryPoint(node, dx, dy) {
+      const cx = node.x + node.width / 2;
+      const cy = node.y + node.height / 2;
 
-	  let scale;
-	  if (absDx / halfW > absDy / halfH) {
-	    scale = halfW / absDx;
-	  } else {
-	    scale = halfH / absDy;
-	  }
+      const halfW = node.width / 2;
+      const halfH = node.height / 2;
 
-	  return {
-	    x: cx + dx * scale,
-	    y: cy + dy * scale
-	  };
-	}
+      if (dx === 0 && dy === 0) {
+        return { x: cx, y: cy };
+      }
+
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      let scale;
+      if (absDx / halfW > absDy / halfH) {
+        scale = halfW / absDx;
+      } else {
+        scale = halfH / absDy;
+      }
+
+      return {
+        x: cx + dx * scale,
+        y: cy + dy * scale
+      };
+    }
 
     function renderGraph(graph) {
       try {
+        lastRenderedGraph = graph;
+
         const svg = document.getElementById('svg');
         const viewport = document.getElementById('viewport');
         viewport.innerHTML = '';
+
+        Object.values(openPanelsByNode).forEach(function(panel) {
+          if (panel && panel.parentNode) {
+            panel.parentNode.removeChild(panel);
+          }
+        });
+        for (const key in openPanelsByNode) {
+          delete openPanelsByNode[key];
+        }
 
         const nodes = {};
         const width = 280;
@@ -287,8 +776,8 @@
 
         graph.nodes.forEach(function(n, i) {
           const memberLines = n.members ? n.members.split('\n').filter(x => x.trim().length > 0) : [];
-          const x = 100 + (i % cols) * 360;
-          const y = 120 + Math.floor(i / cols) * 340;
+          const x = 100 + (i % cols) * 350;
+          const y = 60 + Math.floor(i / cols) * 170;
           const height = estimateNodeHeight(memberLines);
 
           nodes[n.id] = {
@@ -299,25 +788,27 @@
             data: n,
             memberLines: memberLines
           };
+
+          nodeAnchors[n.id] = { x: x + width + 8, y: y + 12 };
         });
 
         graph.edges.forEach(function(e) {
           if (!nodes[e.source] || !nodes[e.target]) return;
 
-		  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-		  line.setAttribute('class', 'edge');
-		  line.setAttribute('data-source', e.source);
-		  line.setAttribute('data-target', e.target);
-		  line.setAttribute('data-kind', e.kind);
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('class', 'edge');
+          line.setAttribute('data-source', e.source);
+          line.setAttribute('data-target', e.target);
+          line.setAttribute('data-kind', e.kind);
 
-		  applyEdgeStyle(e.kind, line);
+          applyEdgeStyle(e.kind, line);
 
-		  viewport.appendChild(line);
+          viewport.appendChild(line);
 
           const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           label.setAttribute('class', 'edge-label');
           label.setAttribute('data-edge-label', e.source + '->' + e.target);
-		  label.textContent = prettyKindLabel(e.kind);
+          label.textContent = prettyKindLabel(e.kind);
           viewport.appendChild(label);
         });
 
@@ -329,41 +820,40 @@
           g.setAttribute('data-id', id);
           g.setAttribute('transform', 'translate(' + n.x + ',' + n.y + ')');
 
-		  const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-		  shadow.setAttribute('class', 'node-shadow');
-		  shadow.setAttribute('x', 4);
-		  shadow.setAttribute('y', 5);
-		  shadow.setAttribute('width', n.width);
-		  shadow.setAttribute('height', n.height);
-		  g.appendChild(shadow);
+          const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          shadow.setAttribute('class', 'node-shadow');
+          shadow.setAttribute('x', 4);
+          shadow.setAttribute('y', 5);
+          shadow.setAttribute('width', n.width);
+          shadow.setAttribute('height', n.height);
+          g.appendChild(shadow);
 
-		  const body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-		  
-		  body.setAttribute('class', 'node-body');
-		  body.setAttribute('width', n.width);
-		  body.setAttribute('height', n.height);
-		  g.appendChild(body);
+          const body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          body.setAttribute('class', 'node-body');
+          body.setAttribute('width', n.width);
+          body.setAttribute('height', n.height);
+          g.appendChild(body);
 
-		  const header = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-		  header.setAttribute('class', 'node-header');
-		  header.setAttribute('width', n.width);
-		  header.setAttribute('height', 42);
-		  g.appendChild(header);
+          const header = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          header.setAttribute('class', 'node-header');
+          header.setAttribute('width', n.width);
+          header.setAttribute('height', 42);
+          g.appendChild(header);
 
-		  const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-		  title.setAttribute('class', 'node-title');
-		  title.setAttribute('x', 14);
-		  title.setAttribute('y', 27);
-		  title.textContent = n.data.label;
-		  g.appendChild(title);
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          title.setAttribute('class', 'node-title');
+          title.setAttribute('x', 14);
+          title.setAttribute('y', 27);
+          title.textContent = n.data.label;
+          g.appendChild(title);
 
-		  const divider = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-		  divider.setAttribute('class', 'node-divider');
-		  divider.setAttribute('x1', 0);
-		  divider.setAttribute('x2', n.width);
-		  divider.setAttribute('y1', 42);
-		  divider.setAttribute('y2', 42);
-		  g.appendChild(divider);
+          const divider = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          divider.setAttribute('class', 'node-divider');
+          divider.setAttribute('x1', 0);
+          divider.setAttribute('x2', n.width);
+          divider.setAttribute('y1', 42);
+          divider.setAttribute('y2', 42);
+          g.appendChild(divider);
 
           const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           text.setAttribute('class', 'node-text');
@@ -379,6 +869,27 @@
           });
 
           g.appendChild(text);
+
+          if (notesByNode[id] && notesByNode[id].length > 0) {
+            const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            badge.setAttribute('class', 'note-badge');
+            badge.setAttribute('cx', n.width - 16);
+            badge.setAttribute('cy', 16);
+            badge.setAttribute('r', 12);
+            badge.addEventListener('click', function(event) {
+              event.stopPropagation();
+              openNotePanel(id);
+            });
+            g.appendChild(badge);
+
+            const badgeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            badgeText.setAttribute('class', 'note-badge-text');
+            badgeText.setAttribute('x', n.width - 16);
+            badgeText.setAttribute('y', 16);
+            badgeText.textContent = String(notesByNode[id].length);
+            g.appendChild(badgeText);
+          }
+
           viewport.appendChild(g);
         });
 
@@ -389,35 +900,36 @@
             const t = nodes[edge.getAttribute('data-target')];
             if (!s || !t) return;
 
-			const sx = s.x + s.width / 2;
-			const sy = s.y + s.height / 2;
-			const tx = t.x + t.width / 2;
-			const ty = t.y + t.height / 2;
+            const sx = s.x + s.width / 2;
+            const sy = s.y + s.height / 2;
+            const tx = t.x + t.width / 2;
+            const ty = t.y + t.height / 2;
 
-			const dx = tx - sx;
-			const dy = ty - sy;
+            const dx = tx - sx;
+            const dy = ty - sy;
 
-			const sourcePoint = getBoundaryPoint(s, dx, dy);
-			const targetPoint = getBoundaryPoint(t, -dx, -dy);
+            const sourcePoint = getBoundaryPoint(s, dx, dy);
+            const targetPoint = getBoundaryPoint(t, -dx, -dy);
 
-			edge.setAttribute('x1', sourcePoint.x);
-			edge.setAttribute('y1', sourcePoint.y);
-			edge.setAttribute('x2', targetPoint.x);
-			edge.setAttribute('y2', targetPoint.y);
+            edge.setAttribute('x1', sourcePoint.x);
+            edge.setAttribute('y1', sourcePoint.y);
+            edge.setAttribute('x2', targetPoint.x);
+            edge.setAttribute('y2', targetPoint.y);
 
-			const label = viewport.querySelector('[data-edge-label="' + edge.getAttribute('data-source') + '->' + edge.getAttribute('data-target') + '"]');
-			if (label) {
-			  const midX = (sourcePoint.x + targetPoint.x) / 2;
-			  const midY = (sourcePoint.y + targetPoint.y) / 2;
-			  label.setAttribute('x', midX + 6);
-			  label.setAttribute('y', midY - 6);
-			}
+            const label = viewport.querySelector('[data-edge-label="' + edge.getAttribute('data-source') + '->' + edge.getAttribute('data-target') + '"]');
+            if (label) {
+              const midX = (sourcePoint.x + targetPoint.x) / 2;
+              const midY = (sourcePoint.y + targetPoint.y) / 2;
+              label.setAttribute('x', midX + 6);
+              label.setAttribute('y', midY - 6);
+            }
           });
 
           viewport.querySelectorAll('.node').forEach(function(nodeEl) {
             const id = nodeEl.getAttribute('data-id');
             const n = nodes[id];
             nodeEl.setAttribute('transform', 'translate(' + n.x + ',' + n.y + ')');
+            nodeAnchors[id] = { x: n.x + n.width + 8, y: n.y + 12 };
           });
         }
 
@@ -429,7 +941,8 @@
 
         viewport.querySelectorAll('.node').forEach(function(nodeEl) {
           nodeEl.addEventListener('mousedown', function(e) {
-			if (e.button !== 0) return;
+            if (e.button !== 0) return;
+            if (e.target.classList.contains('note-badge')) return;
             const id = nodeEl.getAttribute('data-id');
             dragged = nodes[id];
             offsetX = e.clientX - dragged.x;
@@ -454,7 +967,7 @@
         let panStart = { x: 0, y: 0 };
 
         svg.addEventListener('mousedown', function(e) {
-		  if (e.button !== 0) return;
+          if (e.button !== 0) return;
           if (e.target.closest('.node')) return;
           isPanning = true;
           panStart.x = e.clientX - pan.x;
