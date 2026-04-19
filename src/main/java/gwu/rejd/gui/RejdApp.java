@@ -30,7 +30,7 @@ public class RejdApp extends Application {
         scopeComboBox.setPrefWidth(300);
 
         Label scopeLabel = new Label("Scope:");
-        HBox toolbar = new HBox(10, scopeLabel, scopeComboBox);
+        HBox toolbar = new HBox(10, scopeLabel, scopeComboBox, classDiagramView.getExportButton());
         toolbar.setPadding(new Insets(10));
 
         BorderPane classDiagramContainer = new BorderPane();
