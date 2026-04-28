@@ -11,36 +11,27 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import gwu.rejd.extractor.ProjectModelBuilder;
-import gwu.rejd.extractor.RelationshipExtractor;
-import gwu.rejd.generator.DiagramRenderer;
-import gwu.rejd.generator.PlantUmlClassDiagramGenerator;
-import gwu.rejd.generator.PlantUmlSequenceDiagramGenerator;
 import gwu.rejd.model.ProjectModel;
-import gwu.rejd.model.RelationshipModel;
 
 /**
- * Entry point for the REJD AST Parser.
+ * CLI entry point for the REJD AST Parser.
  *
- * Reads a Java source file, parses it with Eclipse JDT, captures any
- * errors/warnings, and writes the full AST parse tree to "parsedtree"
- * in the project root directory.
+ * Reads a Java source file, parses it with Eclipse JDT, and prints
+ * a summary of the parsed model (package, imports, types) to stdout.
  *
  * Usage (Maven):
- * mvn exec:java <- uses src/samples/Sample.java
- * mvn exec:java -Dexec.args="path/to/YourFile.java" <- custom input
+ *   mvn exec:java                                      <- uses src/samples/Sample.java
+ *   mvn exec:java -Dexec.args="path/to/YourFile.java" <- custom input
  *
  * Usage (jar):
- * java -cp ... gwu.rejd.Main [path/to/YourFile.java]
+ *   java -cp ... gwu.rejd.Main [path/to/YourFile.java]
+ *
+ * For full diagram generation use the standalone GUI: mvn javafx:run
+ * For the Eclipse plugin see: GUI Portion/plugin/
  */
 public class Main {
-
-    /** Output file written to project root. */
-    private static final String OUTPUT_FILE = "parsedtree";
 
     /** Default input if no argument is supplied. */
     private static final String DEFAULT_INPUT = "src/samples/Sample.java";
@@ -71,127 +62,37 @@ public class Main {
         parser.setCompilerOptions(options);
 
         parser.setSource(source.toCharArray());
-        parser.setResolveBindings(false); // standalone: no classpath available
-        parser.setStatementsRecovery(true); // produce partial tree even on errors
+        parser.setResolveBindings(false);
+        parser.setStatementsRecovery(true);
         parser.setBindingsRecovery(false);
 
         // --- Parse ---
         CompilationUnit cu = (CompilationUnit) parser.createAST(null);
-        
+
         ProjectModelBuilder b = new ProjectModelBuilder();
         ProjectModel model = b.build("rejd-demo", cu);
 
+        // --- Print summary ---
         System.out.println("----- PROJECT MODEL -----");
         System.out.println("Package : " + model.getPackageName());
         System.out.println("Imports : " + model.getImports().size());
         model.getImports().forEach(i -> System.out.println("  " + i));
-
         System.out.println("Types   : " + model.getTypesByFqn().size());
         model.getTypesByFqn().keySet().forEach(fqn -> System.out.println("  " + fqn));
         System.out.println("-------------------------");
 
-        // --- Collect diagnostics ---
-        List<String> errors = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-
+        // --- Print any parse errors/warnings ---
+        int errors = 0, warnings = 0;
         for (IProblem problem : cu.getProblems()) {
             String location = "Line " + problem.getSourceLineNumber();
-            String msg = "[" + location + "] " + problem.getMessage();
             if (problem.isError()) {
-                errors.add(msg);
+                System.err.println("  [ERROR] [" + location + "] " + problem.getMessage());
+                errors++;
             } else {
-                // IProblem has no isWarning(); everything non-error is a warning/info
-                warnings.add(msg);
+                System.out.println("  [WARN]  [" + location + "] " + problem.getMessage());
+                warnings++;
             }
         }
-
-        // --- Build the output ---
-        StringBuilder out = new StringBuilder();
-        writeHeader(out, filePath, source, errors, warnings);
-
-        out.append("\n");
-        separator(out, "FULL AST PARSE TREE");
-        out.append("\n");
-
-        ASTTreePrinter printer = new ASTTreePrinter(out, cu);
-        cu.accept(printer);
-
-        // --- Write to "parsedtree" in project root ---
-        Path outputFile = Paths.get(OUTPUT_FILE).toAbsolutePath();
-        Files.write(outputFile, out.toString().getBytes(StandardCharsets.UTF_8));
-
-        System.out.println("Output  : " + outputFile);
-        System.out.printf("Result  : %d error(s), %d warning(s)%n",
-                errors.size(), warnings.size());
-
-        if (!errors.isEmpty()) {
-            System.out.println("\nParse errors:");
-            errors.forEach(e -> System.out.println("  " + e));
-        }
-
-        // --- Diagram pipeline ---
-        Path outputDir = Paths.get("output").toAbsolutePath();
-        Files.createDirectories(outputDir);
-
-        // Step 1: extract relationships
-        List<RelationshipModel> relationships = new RelationshipExtractor().extract(model);
-
-        // Step 2: class diagram
-        String classDiagramUml = new PlantUmlClassDiagramGenerator().generate(model, relationships);
-        System.out.println("\n===== CLASS DIAGRAM PlantUML =====");
-        System.out.println(classDiagramUml);
-        Path classDiagramPath = outputDir.resolve("class-diagram.png");
-        new DiagramRenderer().render(classDiagramUml, classDiagramPath);
-        System.out.println("Class diagram written to: " + classDiagramPath);
-
-        // Step 3: sequence diagram
-        String sequenceMethodId = "gwu.samples.Library#checkout(String):void";
-        String sequenceDiagramUml = new PlantUmlSequenceDiagramGenerator()
-                .generate(model, cu, sequenceMethodId);
-        System.out.println("\n===== SEQUENCE DIAGRAM PlantUML =====");
-        System.out.println(sequenceDiagramUml);
-        Path sequenceDiagramPath = outputDir.resolve("sequence-diagram.png");
-        new DiagramRenderer().render(sequenceDiagramUml, sequenceDiagramPath);
-        System.out.println("Sequence diagram written to: " + sequenceDiagramPath);
-    }
-
-    // -------------------------------------------------------------------------
-    // Output helpers
-    // -------------------------------------------------------------------------
-
-    private static void writeHeader(StringBuilder out, Path filePath, String source,
-            List<String> errors, List<String> warnings) {
-        separator(out, "REJD — JAVA AST PARSE TREE REPORT");
-        out.append("\n");
-        out.append("  Source    : ").append(filePath).append("\n");
-        out.append("  Generated : ").append(new Date()).append("\n");
-        out.append("  Parser    : Eclipse JDT  (JLS latest)\n");
-        out.append("  Lines     : ").append(source.split("\n", -1).length).append("\n");
-        out.append("  Characters: ").append(source.length()).append("\n");
-        out.append("\n");
-
-        if (errors.isEmpty() && warnings.isEmpty()) {
-            out.append("  DIAGNOSTICS: No errors or warnings.\n");
-        } else {
-            if (!errors.isEmpty()) {
-                out.append("  ERRORS (").append(errors.size()).append("):\n");
-                for (String e : errors) {
-                    out.append("    [ERROR] ").append(e).append("\n");
-                }
-            }
-            if (!warnings.isEmpty()) {
-                out.append("  WARNINGS (").append(warnings.size()).append("):\n");
-                for (String w : warnings) {
-                    out.append("    [WARN]  ").append(w).append("\n");
-                }
-            }
-        }
-    }
-
-    private static void separator(StringBuilder out, String title) {
-        String line = "=".repeat(64);
-        out.append(line).append("\n");
-        out.append("  ").append(title).append("\n");
-        out.append(line).append("\n");
+        System.out.printf("Result  : %d error(s), %d warning(s)%n", errors, warnings);
     }
 }

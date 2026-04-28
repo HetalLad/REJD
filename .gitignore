@@ -1,1 +1,17 @@
+# Maven build output
 /target/
+dependency-reduced-pom.xml
+
+# Eclipse plugin build output
+GUI\ Portion/plugin/bin/
+
+# REJD generated output
+parsedtree
+
+# macOS
+.DS_Store
+
+# Eclipse IDE
+.classpath
+.project
+.settings/

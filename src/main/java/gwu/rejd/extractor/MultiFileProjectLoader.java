@@ -22,29 +22,32 @@ import java.util.stream.Stream;
 public class MultiFileProjectLoader {
 
     public ProjectModel loadProject(String projectId, Path rootDirectory) throws IOException {
+        try (Stream<Path> pathStream = Files.walk(rootDirectory)) {
+            List<Path> javaFiles = pathStream
+                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".java"))
+                    .sorted()
+                    .toList();
+            return loadProject(projectId, javaFiles);
+        }
+    }
+
+    public ProjectModel loadProject(String projectId, List<Path> javaFiles) throws IOException {
         ProjectModelBuilder builder = new ProjectModelBuilder();
 
         Map<String, TypeModel> mergedTypes = new LinkedHashMap<>();
         LinkedHashSet<String> mergedImports = new LinkedHashSet<>();
         PackageNode mergedRoot = new PackageNode("");
 
-        try (Stream<Path> pathStream = Files.walk(rootDirectory)) {
-            List<Path> javaFiles = pathStream
-                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".java"))
-                    .sorted()
-                    .toList();
+        for (Path javaFile : javaFiles) {
+            String source = Files.readString(javaFile, StandardCharsets.UTF_8);
+            CompilationUnit cu = parseCompilationUnit(source);
 
-            for (Path javaFile : javaFiles) {
-                String source = Files.readString(javaFile, StandardCharsets.UTF_8);
-                CompilationUnit cu = parseCompilationUnit(source);
+            ProjectModel singleFileModel = builder.build(projectId, cu);
 
-                ProjectModel singleFileModel = builder.build(projectId, cu);
+            mergedImports.addAll(singleFileModel.getImports());
 
-                mergedImports.addAll(singleFileModel.getImports());
-
-                for (Map.Entry<String, TypeModel> entry : singleFileModel.getTypesByFqn().entrySet()) {
-                    mergedTypes.put(entry.getKey(), entry.getValue());
-                }
+            for (Map.Entry<String, TypeModel> entry : singleFileModel.getTypesByFqn().entrySet()) {
+                mergedTypes.put(entry.getKey(), entry.getValue());
             }
         }
 
@@ -64,6 +67,11 @@ public class MultiFileProjectLoader {
                 mergedRoot,
                 mergedTypes
         );
+    }
+
+    public CompilationUnit parseFile(Path javaFile) throws IOException {
+        String source = Files.readString(javaFile, StandardCharsets.UTF_8);
+        return parseCompilationUnit(source);
     }
 
     private CompilationUnit parseCompilationUnit(String source) {

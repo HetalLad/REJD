@@ -526,6 +526,12 @@
       viewport.setAttribute('transform', 'translate(' + panX + ',' + panY + ') scale(' + currentZoom + ')');
     }
 
+    function setBackground(color) {
+      document.body.style.background = color;
+      var canvas = document.getElementById('canvas');
+      if (canvas) canvas.style.background = color;
+    }
+
     function showContextMenu(x, y, nodeId) {
       activeNodeId = nodeId;
       noteDialogAnchor = { x, y };
@@ -1260,6 +1266,12 @@
             offsetY = e.clientY - dragged.y;
             e.stopPropagation();
           });
+          nodeEl.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = nodeEl.getAttribute('data-id');
+            showContextMenu(e.clientX, e.clientY, id);
+          });
         });
 
         document.addEventListener('mousemove', function(e) {
@@ -1368,6 +1380,68 @@
         setStatus('Rendered successfully. Drag nodes. Ctrl + wheel zoom.');
       } catch (e) {
         setStatus('Render error: ' + e);
+      }
+    }
+
+    // ── Ctrl + scroll: zoom ────────────────────────────────────────────────────
+    document.addEventListener('wheel', function(e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? -0.1 : 0.1;
+        currentZoom = Math.max(0.4, Math.min(2.5, currentZoom + delta));
+        setZoom(currentZoom);
+      }
+    }, { passive: false });
+
+    // ── Click outside context menu: close it ──────────────────────────────────
+    document.addEventListener('mousedown', function(e) {
+      var menu = document.getElementById('contextMenu');
+      if (menu && menu.style.display === 'block' && !menu.contains(e.target)) {
+        hideContextMenu();
+      }
+    });
+
+    // Export the SVG diagram to a PNG data URL.
+    // Called by the Eclipse plugin via browser.execute("exportToPng(true)").
+    // Result is delivered asynchronously to window.javaExportComplete(dataUrl).
+    function exportToPng(includeNotes) {
+      try {
+        if (!includeNotes) hideNotes();
+        var svg = document.getElementById('svg');
+        var vb = svg.viewBox.baseVal;
+        var w = vb.width || svg.getBoundingClientRect().width || 1200;
+        var h = vb.height || svg.getBoundingClientRect().height || 800;
+        var data = new XMLSerializer().serializeToString(svg);
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#eef1f6';
+        ctx.fillRect(0, 0, w, h);
+        var img = new Image();
+        img.onload = function() {
+          ctx.drawImage(img, 0, 0, w, h);
+          var dataUrl = canvas.toDataURL('image/png');
+          if (!includeNotes) showNotes();
+          if (typeof window.javaExportComplete === 'function') {
+            window.javaExportComplete(dataUrl);
+          }
+          URL.revokeObjectURL(this.src);
+        };
+        img.onerror = function() {
+          if (!includeNotes) showNotes();
+          if (typeof window.javaExportComplete === 'function') {
+            window.javaExportComplete(null);
+          }
+        };
+        var blob = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
+        img.src = URL.createObjectURL(blob);
+      } catch(e) {
+        if (!includeNotes) showNotes();
+        if (typeof window.javaExportComplete === 'function') {
+          window.javaExportComplete(null);
+        }
+        console.error('REJD export error: ' + e);
       }
     }
   </script>

@@ -54,6 +54,18 @@ public class ClassDiagramView extends BorderPane {
     /** Root of the project used for .rejd/rejd-notes.json */
     private Path projectRoot = Paths.get("").toAbsolutePath();
 
+    /** CSS colour passed by the Eclipse host to match the shell theme (e.g. "rgb(240,240,240)"). */
+    private String eclipseBgColor = null;
+
+    /** Set to true once the diagram HTML page has fully loaded (Worker.State.SUCCEEDED). */
+    private boolean pageLoaded = false;
+
+    /** Holds a renderGraph JSON call that arrived before the page was ready. */
+    private String pendingGraphJson = null;
+
+    /** Guard so the one-time page-load listener is only registered once. */
+    private boolean pageListenerRegistered = false;
+
     /**
      * The most-recently-loaded WebEngine, held statically so the Eclipse plugin
      * can push updated notes into the live view from a non-JavaFX thread via
@@ -159,51 +171,104 @@ public class ClassDiagramView extends BorderPane {
 
     public void renderGraph(String graphJson) {
         WebEngine engine = webView.getEngine();
-        var htmlUrl = getClass().getResource("/web/simple-diagram.html");
 
-        if (htmlUrl == null) {
-            engine.loadContent("<html><body>simple-diagram.html not found in resources/web</body></html>");
+        if (pageLoaded) {
+            // Page already ready — execute JS immediately
+            executeRender(engine, graphJson);
             return;
         }
 
-        engine.load(htmlUrl.toExternalForm());
+        // Store the latest pending JSON (replaces any earlier pending call)
+        pendingGraphJson = graphJson;
 
-        engine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+        // Load the HTML page once and register a one-shot load listener
+        if (!pageListenerRegistered) {
+            pageListenerRegistered = true;
+
+            // Read the HTML as a string so we can use loadContent().
+            // WebView's internal WebKit cannot load bundleresource:// (OSGi) or jar:// URLs
+            // directly — it only supports http/https/file/data.  loadContent() bypasses
+            // that restriction by injecting the content directly into the engine.
+            java.net.URL htmlUrl = getClass().getClassLoader()
+                    .getResource("web/simple-diagram.html");
+            System.out.println("REJD: HTML resource URL = " + htmlUrl);
+            if (htmlUrl == null) {
+                System.err.println("REJD ERROR: simple-diagram.html not found on classpath.");
+                engine.loadContent("<html><body>simple-diagram.html not found</body></html>");
+                return;
+            }
+
+            String htmlContent;
+            try (java.io.InputStream is = htmlUrl.openStream()) {
+                htmlContent = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                System.out.println("REJD: HTML read OK, length=" + htmlContent.length());
+            } catch (java.io.IOException ex) {
+                System.err.println("REJD ERROR: Cannot read simple-diagram.html: " + ex);
+                engine.loadContent("<html><body>Cannot read simple-diagram.html: " + ex.getMessage() + "</body></html>");
+                return;
+            }
+
+            // loadContent() fires SUCCEEDED once when the injected HTML is ready
+            engine.loadContent(htmlContent, "text/html");
+
+            engine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                if (newState != javafx.concurrent.Worker.State.SUCCEEDED) return;
+                if (pageLoaded) return;   // guard: process first SUCCEEDED only
+                pageLoaded = true;
+                System.out.println("REJD: page SUCCEEDED — injecting bridge and rendering");
                 try {
-                    // 0. Publish engine so the Eclipse plugin can call loadNotesIntoLiveView()
+                    // 1. Publish engine for live note updates from the Eclipse plugin
                     liveEngine = engine;
 
-                    // 1. Inject Java bridge so JS can call back to persist notes
+                    // 2. Inject Java↔JS bridge
                     JSObject window = (JSObject) engine.executeScript("window");
                     window.setMember("javaBridge", bridge);
 
-                    // 2. Identify current user
-                    engine.executeScript(
-                        "setCurrentAuthor('" + escapeJs(UserContext.getCurrentUser()) + "');"
-                    );
-
-                    // 3. Load persisted notes — prefer disk, fall back to startup preload cache
-                    List<NoteModel> loaded = NoteRepository.load(projectRoot);
-                    if (loaded.isEmpty()) {
-                        loaded = NotePreloadCache.get(projectRoot);
+                    // 3. Identify current user
+                    String user = UserContext.getCurrentUser();
+                    if (user != null) {
+                        engine.executeScript("setCurrentAuthor('" + escapeJs(user) + "');");
                     }
+
+                    // 4. Load persisted notes
+                    List<NoteModel> loaded = NoteRepository.load(projectRoot);
+                    if (loaded.isEmpty()) loaded = NotePreloadCache.get(projectRoot);
                     notes.clear();
                     notes.addAll(loaded);
                     if (!notes.isEmpty()) {
-                        String notesJson = gson.toJson(notes);
-                        engine.executeScript("loadNotes(" + notesJson + ");");
+                        engine.executeScript("loadNotes(" + gson.toJson(notes) + ");");
                     }
 
-                    // 4. Render the diagram (badges are drawn using populated notesByNode)
-                    engine.executeScript("renderGraph(" + graphJson + ");");
-                    engine.executeScript("setZoom(" + zoomLevel + ");");
-                    exportButton.setDisable(false);
+                    // 5. Replay any pending render call
+                    if (pendingGraphJson != null) {
+                        executeRender(engine, pendingGraphJson);
+                        pendingGraphJson = null;
+                    }
                 } catch (Exception e) {
-                    engine.loadContent("<html><body>Render failed: " + escapeHtml(e.toString()) + "</body></html>");
+                    // Log but do NOT call engine.loadContent() here — that would
+                    // retrigger SUCCEEDED and create an infinite loop.
+                    System.err.println("REJD ERROR in page load listener: " + e);
+                    e.printStackTrace();
                 }
+            });
+        }
+    }
+
+    /** Executes the actual renderGraph JS call and post-render steps. Must run on FX thread. */
+    private void executeRender(WebEngine engine, String graphJson) {
+        try {
+            System.out.println("REJD: calling JS renderGraph(), json length=" + graphJson.length());
+            engine.executeScript("renderGraph(" + graphJson + ");");
+            engine.executeScript("setZoom(" + zoomLevel + ");");
+            if (eclipseBgColor != null) {
+                engine.executeScript(
+                        "document.body && (document.body.style.background='" + eclipseBgColor + "');");
             }
-        });
+            exportButton.setDisable(false);
+        } catch (Exception e) {
+            System.err.println("REJD ERROR in executeRender: " + e);
+            engine.loadContent("<html><body>Render failed: " + escapeHtml(e.toString()) + "</body></html>");
+        }
     }
 
     public void clear() {
@@ -212,6 +277,53 @@ public class ClassDiagramView extends BorderPane {
         );
         zoomLevel = 1.0;
         exportButton.setDisable(true);
+    }
+
+    /**
+     * Stores a CSS background colour applied to every page loaded by this view.
+     * Used by the Eclipse plugin to match the IDE shell theme.
+     */
+    public void setEclipseBackground(String cssColor) {
+        this.eclipseBgColor = cssColor;
+    }
+
+    /**
+     * Renders a sequence diagram PNG inside the WebView, using a plain HTML wrapper.
+     * Used by the Eclipse plugin in place of a separate SWT ImageView.
+     *
+     * @param pngPath     path to the generated PNG file
+     * @param bgCssColor  CSS colour for the page background, or {@code null} for white
+     */
+    public void renderSequenceDiagram(Path pngPath, String bgCssColor) {
+        String bg = bgCssColor != null ? bgCssColor : (eclipseBgColor != null ? eclipseBgColor : "#ffffff");
+        webView.getEngine().loadContent(
+            "<!DOCTYPE html><html><body style='margin:0;padding:8px;background:" + bg + "'>"
+            + "<img src='" + pngPath.toUri().toString()
+            + "' style='max-width:100%;display:block;margin:auto'>"
+            + "</body></html>"
+        );
+        exportButton.setDisable(false);
+    }
+
+    /**
+     * Captures a snapshot of the current WebView content and delivers it to
+     * {@code callback} on the JavaFX thread.
+     * Hides/restores note badges around the snapshot when {@code includeNotes} is false.
+     * Safe to call from any thread.
+     */
+    public void snapshotForExport(boolean includeNotes,
+                                   java.util.function.Consumer<javafx.scene.image.WritableImage> callback) {
+        javafx.application.Platform.runLater(() -> {
+            WebEngine engine = webView.getEngine();
+            if (!includeNotes) {
+                try { engine.executeScript("hideNotes();"); } catch (Exception ignored) {}
+            }
+            javafx.scene.image.WritableImage image = webView.snapshot(null, null);
+            if (!includeNotes) {
+                try { engine.executeScript("showNotes();"); } catch (Exception ignored) {}
+            }
+            callback.accept(image);
+        });
     }
 
     // ---------------------------------------------------------------

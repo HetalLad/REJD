@@ -29,4 +29,14 @@ public class NotePreloadCache {
                 projectRoot.toAbsolutePath().normalize(),
                 Collections.emptyList());
     }
+
+    /** Removes and returns the cached list (one-shot). Returns empty list if absent. */
+    public static List<NoteModel> drain(Path projectRoot) {
+        List<NoteModel> result = cache.remove(projectRoot.toAbsolutePath().normalize());
+        return result != null ? result : Collections.emptyList();
+    }
+
+    public static boolean has(Path projectRoot) {
+        return cache.containsKey(projectRoot.toAbsolutePath().normalize());
+    }
 }

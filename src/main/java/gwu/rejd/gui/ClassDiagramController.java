@@ -1,10 +1,16 @@
 package gwu.rejd.gui;
 
 import gwu.rejd.extractor.RelationshipExtractor;
+import gwu.rejd.generator.DiagramRenderer;
+import gwu.rejd.generator.PlantUmlSequenceDiagramGenerator;
 import gwu.rejd.generator.SimpleGraphGenerator;
 import gwu.rejd.model.ProjectModel;
 import gwu.rejd.model.RelationshipModel;
+import org.eclipse.jdt.core.dom.CompilationUnit;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 public class ClassDiagramController {
@@ -27,7 +33,15 @@ public class ClassDiagramController {
         renderCurrentScope();
     }
 
+    /** Sets scope and re-renders only if a project is already loaded. */
     public void setScope(DiagramScope scope) {
+        this.currentScope = scope != null ? scope : DiagramScope.entireProject();
+        renderCurrentScope();
+    }
+
+    /** Sets both project and scope atomically, then renders exactly once. */
+    public void showProjectWithScope(ProjectModel projectModel, DiagramScope scope) {
+        this.currentProject = projectModel;
         this.currentScope = scope != null ? scope : DiagramScope.entireProject();
         renderCurrentScope();
     }
@@ -46,6 +60,20 @@ public class ClassDiagramController {
 
         String graphJson = graphGenerator.generate(scopedProject, scopedRelationships);
         view.renderGraph(graphJson);
+    }
+
+    /**
+     * Generates a sequence diagram for the given method and returns the path to
+     * a temporary PNG file. All pipeline logic (PlantUML generation, rendering)
+     * lives here in gwu.rejd — callers (Eclipse plugin, standalone app) just
+     * pass in the model/CU/methodId and receive a ready-to-display PNG path.
+     */
+    public Path generateSequenceDiagram(ProjectModel model, CompilationUnit cu, String methodId)
+            throws IOException {
+        String plantUml = new PlantUmlSequenceDiagramGenerator().generate(model, cu, methodId);
+        Path tmpPng = Files.createTempFile("rejd-seq-", ".png");
+        new DiagramRenderer().render(plantUml, tmpPng);
+        return tmpPng;
     }
 
     public void clear() {

@@ -1,0 +1,19 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: REJD Plugin
+Bundle-SymbolicName: gwu.rejd.plugin;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-ClassPath: .,
+ resources/,
+ lib/rejd-all.jar
+Require-Bundle: org.eclipse.swt,
+ org.eclipse.jface,
+ org.eclipse.ui;bundle-version="3.207.400",
+ org.eclipse.ui.ide;bundle-version="3.22.800",
+ org.eclipse.core.runtime;bundle-version="3.34.100",
+ org.eclipse.core.resources;bundle-version="3.23.100",
+ org.eclipse.jdt.core,
+ org.eclipse.jdt.ui
+Automatic-Module-Name: gwu.rejd.plugin
+Bundle-ActivationPolicy: lazy
+Bundle-RequiredExecutionEnvironment: JavaSE-17

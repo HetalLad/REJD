@@ -1,0 +1,435 @@
+================================================================================
+  REJD - Java AST Parser & UML Diagram Generator
+  Project Architecture
+================================================================================
+
+This document describes every source file in the project, what it does,
+and how all the pieces connect together.
+
+OVERVIEW
+--------
+REJD has two independent runnable forms that share the same core library:
+
+  1. STANDALONE APP  -- a JavaFX desktop window (run outside Eclipse)
+  2. ECLIPSE PLUGIN  -- integrates into Eclipse IDE via SWT (no JavaFX needed)
+
+Both forms use the same parsing, model-building, and diagram-generation engine
+located in src/main/java/gwu/rejd/.
+
+================================================================================
+  PART 1 -- CORE LIBRARY  (src/main/java/gwu/rejd/)
+================================================================================
+
+This code does all the real work: parsing Java, building models, and generating
+diagrams. It is shared by both the standalone app and the Eclipse plugin.
+
+────────────────────────────────────────────────────────────────────────────────
+  Root level
+────────────────────────────────────────────────────────────────────────────────
+
+  Main.java
+    CLI entry point. Accepts an optional .java file path as a command-line
+    argument (defaults to src/samples/Sample.java). Parses it with JDT and
+    prints a summary of the parsed model (package, imports, types) to stdout.
+    Also reports any parse errors or warnings.
+    Run with: mvn exec:java
+    For full diagram generation, use the standalone GUI: mvn javafx:run
+
+  ASTTreePrinter.java
+    Walks an Eclipse JDT CompilationUnit AST and formats every node into a
+    human-readable indented text tree. Available as a utility class for
+    debugging how REJD sees a Java file.
+
+────────────────────────────────────────────────────────────────────────────────
+  extractor/  -- Parsing Java source into a model
+────────────────────────────────────────────────────────────────────────────────
+
+  MultiFileProjectLoader.java
+    The main entry point for parsing. Given a list of .java file Paths and a
+    project name, it parses each file individually using Eclipse JDT, then
+    merges all results into a single ProjectModel. Also exposes parseFile()
+    for parsing one file at a time (used by sequence diagram generation).
+
+  ProjectModelBuilder.java
+    Takes a single parsed CompilationUnit (one .java file) and builds a
+    ProjectModel from it. Extracts all classes, interfaces, enums, fields,
+    methods, constructors, parameters, return types, and package structure.
+    This is the most complex file in the extractor package.
+
+  RelationshipExtractor.java
+    Post-processes a completed ProjectModel to find relationships between types:
+    inheritance (extends), interface implementation (implements), associations
+    (field references to other types), and dependencies (method parameters/
+    return types). Produces a list of RelationshipModel objects.
+
+────────────────────────────────────────────────────────────────────────────────
+  generator/  -- Converting the model into diagrams
+────────────────────────────────────────────────────────────────────────────────
+
+  SimpleGraphGenerator.java
+    Converts a ProjectModel + list of RelationshipModels into a JSON string
+    that the browser-based diagram renderer (simple-diagram.html) understands.
+    This is what gets passed to the JavaScript renderGraph() function.
+
+  PlantUmlClassDiagramGenerator.java
+    Converts a ProjectModel into a PlantUML class diagram definition string
+    (@startuml ... @enduml). Used by the standalone CLI (Main.java).
+
+  PlantUmlSequenceDiagramGenerator.java
+    Given a ProjectModel, a CompilationUnit, and a method ID, analyzes the
+    method body's AST and generates a PlantUML sequence diagram showing the
+    call chain. Used for sequence diagram generation in both the standalone
+    app and the Eclipse plugin.
+
+  DiagramRenderer.java
+    Wraps the PlantUML library. Takes a PlantUML definition string and renders
+    it to a PNG file at a given output path. Used by the CLI and for sequence
+    diagrams (class diagrams use the browser-based renderer instead).
+
+────────────────────────────────────────────────────────────────────────────────
+  model/  -- Data structures
+────────────────────────────────────────────────────────────────────────────────
+
+  ProjectModel.java
+    Top-level container for a parsed project. Holds all TypeModels indexed by
+    fully-qualified name, all imports, and the package tree root node.
+
+  TypeModel.java
+    Represents one class, interface, enum, or annotation. Stores the simple
+    name, fully-qualified name, package, kind (CLASS/INTERFACE/ENUM), visibility,
+    modifiers (abstract, static, final), fields, methods, implemented interfaces,
+    and superclass name.
+
+  MethodModel.java
+    Represents one method or constructor. Stores name, return type, parameters,
+    visibility, modifiers, and a unique methodId used to identify it for
+    sequence diagram generation.
+
+  FieldModel.java
+    Represents one field declaration. Stores name, type, and visibility.
+
+  ParamModel.java
+    Represents one method parameter. Stores name and type string.
+
+  RelationshipModel.java
+    Represents a directed relationship between two types. Stores source FQN,
+    target FQN, and the relationship kind (EXTENDS, IMPLEMENTS, ASSOCIATES,
+    DEPENDS_ON).
+
+  PackageNode.java
+    A node in the package tree. Each node has a segment name (e.g. "rejd"),
+    child nodes (sub-packages), and a set of type FQNs declared in it.
+    Used to populate the package/type tree in the Eclipse plugin view.
+
+  enums/TypeKind.java        -- CLASS, INTERFACE, ENUM, ANNOTATION
+  enums/RelationshipKind.java -- EXTENDS, IMPLEMENTS, ASSOCIATES, DEPENDS_ON
+  enums/Visibility.java      -- PUBLIC, PROTECTED, PRIVATE, PACKAGE
+
+────────────────────────────────────────────────────────────────────────────────
+  notes/  -- Sticky note annotations on diagram nodes
+────────────────────────────────────────────────────────────────────────────────
+
+  NoteModel.java
+    Data class for a note. Stores id, nodeId (which diagram node it's attached
+    to), author, text, timestamp, isDeleted flag, and a list of ReplyModels.
+
+  ReplyModel.java
+    Data class for a reply within a note thread. Stores id, author, text,
+    timestamp, and isDeleted flag.
+
+  NoteRepository.java
+    Persists notes to and from a JSON file at <projectRoot>/.rejd/notes.json.
+    save() serializes the full notes list. load() deserializes it.
+    Uses Gson for JSON serialization.
+
+  NotePreloadCache.java
+    An in-memory cache that maps project paths to their loaded notes lists.
+    Used as a fallback when the notes.json file has not been written yet
+    (i.e., notes were loaded at startup before the view rendered the first
+    diagram). The plugin pre-populates this cache on startup.
+
+────────────────────────────────────────────────────────────────────────────────
+  gui/  -- Standalone JavaFX application
+────────────────────────────────────────────────────────────────────────────────
+
+  RejdApp.java
+    The JavaFX Application entry point for the standalone desktop app.
+    Creates the main window with a "Class Diagram" tab and a "Sequence Diagram"
+    tab, a scope dropdown, file/folder open controls, and an export button.
+    Wires up ClassDiagramController to respond to user actions.
+    Launch with: mvn javafx:run
+
+  ClassDiagramView.java
+    A JavaFX WebView component that hosts the simple-diagram.html page.
+    Provides a Java↔JavaScript bridge so the HTML renderer can call back into
+    Java to save/delete notes. Handles PNG export via canvas→base64→file.
+    Also exposes loadNotesIntoLiveView() as a static method for the plugin to
+    call when a project is opened.
+
+  ClassDiagramController.java
+    Orchestrates the standalone app's diagram generation. Calls
+    MultiFileProjectLoader to parse files, RelationshipExtractor to find
+    relationships, SimpleGraphGenerator to build JSON, and pushes it into
+    ClassDiagramView. Also handles sequence diagram generation and scope
+    filtering.
+
+  DiagramScope.java
+    Simple value object describing which part of the project to show:
+    either the entire project or a specific package. Created via static
+    factory methods entireProject() and forPackage(String).
+
+  ProjectModelFilter.java
+    Filters a ProjectModel down to only the types that belong to a given
+    DiagramScope. Used when the user selects a specific package from the
+    scope dropdown.
+
+  RelationshipScopeFilter.java
+    Filters a list of RelationshipModels to only include relationships where
+    both source and target belong to the current DiagramScope.
+
+────────────────────────────────────────────────────────────────────────────────
+  util/  -- Utilities
+────────────────────────────────────────────────────────────────────────────────
+
+  UserContext.java
+    Stores the currently logged-in username in a static field. Set by the
+    plugin's LoginDialog at startup, used by the notes system to attribute
+    who created/replied to a note.
+
+  TypeNameUtils.java
+    Small helper that strips generic type parameters from type name strings
+    (e.g. "List<String>" → "List"). Used during model building to resolve
+    type references cleanly.
+
+────────────────────────────────────────────────────────────────────────────────
+  resources/web/simple-diagram.html
+────────────────────────────────────────────────────────────────────────────────
+
+  The entire browser-based diagram renderer. A self-contained HTML/JS file
+  loaded into the SWT Browser (plugin) or JavaFX WebView (standalone).
+  Exposes these JavaScript functions called from Java:
+    - renderGraph(json)      -- draws the class diagram from JSON data
+    - setZoom(level)         -- applies a zoom scale (0.4 – 2.5)
+    - setBackground(color)   -- sets the canvas background to match IDE theme
+    - loadNotes(json)        -- loads and displays sticky notes on nodes
+    - exportToPng(withNotes) -- captures canvas to base64 PNG, calls back Java
+  Handles Ctrl+scroll zoom, right-click note creation, note threading,
+  and node click/hover interactions entirely in JavaScript.
+
+────────────────────────────────────────────────────────────────────────────────
+  src/samples/  -- Sample Java files for testing
+────────────────────────────────────────────────────────────────────────────────
+
+  Sample.java           Complex library system demonstrating inheritance,
+                        interfaces, nested classes, enums, generics.
+  UniversitySample.java University domain model with students, courses,
+                        departments — good for multi-type diagram tests.
+  HelloWorld.java       Minimal Java program (one class, one method).
+  SimpleCalculator.java Calculator with arithmetic methods.
+  Greeting.java         Greeting class with multiple constructors.
+
+================================================================================
+  PART 2 -- ECLIPSE PLUGIN  (GUI Portion/plugin/)
+================================================================================
+
+The plugin integrates REJD into the Eclipse IDE. It uses SWT (Standard Widget
+Toolkit) — the native Eclipse UI framework — so it works on macOS (WebKit),
+Windows (Edge/WebView2), and Linux (GTK WebKit) without needing JavaFX.
+
+All diagram logic is delegated to the core library (gwu.rejd.*) via the
+bundled fat JAR at lib/rejd-all.jar.
+
+────────────────────────────────────────────────────────────────────────────────
+  plugin/ui/  -- The Eclipse view and right-click actions
+────────────────────────────────────────────────────────────────────────────────
+
+  RejdDiagramView.java
+    The main Eclipse ViewPart — the "REJD Diagrams" panel that opens inside
+    Eclipse. Contains:
+      - A package/type tree (SWT TreeViewer) on the left showing the parsed
+        project structure. Right-clicking a node generates diagrams scoped
+        to that package or class.
+      - A native SWT Browser on the right that loads simple-diagram.html.
+        Uses WebKit on macOS, Edge/WebView2 on Windows, GTK WebKit on Linux.
+      - A Java↔JavaScript BrowserFunction bridge for notes (save, reply,
+        delete) and PNG export.
+      - Zoom persistence, Eclipse theme background injection, and a
+        ProgressAdapter to handle the HTML page-load lifecycle correctly.
+    This is the heart of the Eclipse plugin.
+
+  ProjectTreeContentProvider.java
+    Implements Eclipse's ITreeContentProvider interface to feed the TreeViewer
+    in RejdDiagramView. Walks the PackageNode tree from the ProjectModel and
+    exposes each package node and its types as tree elements. Also tracks
+    fully-qualified package names for scope resolution.
+
+  ProjectTreeLabelProvider.java
+    Implements Eclipse's LabelProvider to control what text appears for each
+    node in the package/type tree. Shows the package segment name for
+    PackageNodes and the simple class name for TypeModels.
+
+  plugin/ui/actions/  -- Right-click context menu actions
+
+  GenerateClassDiagramAction.java
+    Handles the "Generate Class Diagram" right-click action in the Package
+    Explorer and Project Explorer. Resolves the Java source directory from
+    any selection type (ICompilationUnit, IPackageFragment, IJavaProject,
+    IFile, IProject). Then calls RejdDiagramView.generateClassDiagram().
+    Source directory preference: src/main/java → src → project root.
+
+  GenerateSequenceDiagramAction.java
+    Handles the "Generate Sequence Diagram" right-click action. Only works
+    when a single .java file is selected. Parses the file, shows a method
+    picker dialog, then calls RejdDiagramView.generateAndShowSequenceDiagram().
+
+────────────────────────────────────────────────────────────────────────────────
+  plugin/internal/  -- Plugin bootstrap, handlers, and startup
+────────────────────────────────────────────────────────────────────────────────
+
+  StartupLogin.java
+    Implements Eclipse's IStartup interface — runs automatically when Eclipse
+    starts. Does three things:
+      1. Pre-loads notes from disk for all open workspace projects into
+         NotePreloadCache (background thread).
+      2. Shows LoginDialog to capture the username for note attribution.
+      3. Registers FileAndProjectListner and opens RejdDiagramView immediately.
+
+  LoginDialog.java
+    A lightweight SWT dialog shown once at startup. Pre-fills the OS username
+    (read-only, no password field). The user clicks "Continue" to confirm.
+    After the first call, skips the dialog and returns the OS username directly.
+
+  FileAndProjectListner.java
+    Implements two Eclipse listener interfaces:
+      ISelectionListener -- auto-shows RejdDiagramView whenever the user
+        selects a file or project in the Eclipse workbench.
+      IResourceChangeListener -- when a project is opened during the session,
+        loads its notes from disk and injects them into the live diagram view
+        via ClassDiagramView.loadNotesIntoLiveView().
+
+  GenerateClassDiagramHandler.java
+    An Eclipse AbstractHandler for the "Generate Class Diagram" command wired
+    to the REJD main menu bar. Delegates source directory resolution to
+    GenerateClassDiagramAction.resolveSourceDir(), then calls
+    RejdDiagramView.generateClassDiagram(). Works alongside the action-based
+    right-click system.
+
+  GenerateSequenceDiagramHandler.java
+    An Eclipse AbstractHandler for the "Generate Sequence Diagram" command
+    wired to the REJD main menu bar. Resolves the selected .java file,
+    parses it with MultiFileProjectLoader, shows a method picker, and calls
+    RejdDiagramView.generateAndShowSequenceDiagram().
+
+  OpenFileHandler.java
+    An Eclipse AbstractHandler for the "REJD → Open Java File..." main menu
+    item. Opens a native SWT file browser to pick one or more .java files,
+    asks whether to generate a class or sequence diagram, then delegates to
+    RejdDiagramView. This is the primary entry point when no file is selected
+    in the Package Explorer.
+
+  DiagramView.java  [LEGACY — not active]
+    An older Eclipse ViewPart that used JavaFX embedded via FXCanvas (SWT↔FX
+    bridge). Superseded by RejdDiagramView which uses a native SWT Browser
+    instead, eliminating the JavaFX architecture dependency. Kept for reference.
+
+────────────────────────────────────────────────────────────────────────────────
+  Plugin configuration files
+────────────────────────────────────────────────────────────────────────────────
+
+  plugin.xml
+    The Eclipse plugin descriptor. Declares all extension points:
+      - org.eclipse.ui.startup   → StartupLogin (runs on Eclipse launch)
+      - org.eclipse.ui.views     → RejdDiagramView (the diagram panel)
+      - org.eclipse.ui.commands  → the three REJD commands
+      - org.eclipse.ui.handlers  → handler classes for each command
+      - org.eclipse.ui.menus     → the REJD menu in the main menu bar
+      - org.eclipse.ui.popupMenus → right-click entries for 5 selection types
+                                    (ICompilationUnit, IPackageFragment,
+                                    IJavaProject, IFile, IProject)
+
+  META-INF/MANIFEST.MF
+    OSGi bundle manifest. Defines:
+      Bundle-SymbolicName: gwu.rejd.plugin
+      Bundle-ClassPath: . + resources/ + lib/rejd-all.jar
+      Require-Bundle: all Eclipse platform bundles the plugin depends on
+
+  build.properties
+    Eclipse PDE build descriptor. Tells Eclipse which folders to include
+    when exporting the plugin as a deployable .jar.
+
+  lib/rejd-all.jar
+    The fat JAR containing all core library classes + PlantUML + Eclipse JDT
+    + Gson + JavaFX platform natives (x86_64 macOS for macOS builds, standard
+    for Windows/Linux). Built by build-eclipse-plugin.sh or mvn package -Peclipse-bundle.
+
+  lib/javafx-swt.jar
+    A small JAR providing the SWT↔JavaFX bridge (FXCanvas). Only needed by
+    the legacy DiagramView.java. Not used by the active RejdDiagramView.
+
+  resources/web/simple-diagram.html
+    Copy of the main HTML/JS diagram renderer, loaded from the plugin classpath
+    by RejdDiagramView at runtime.
+
+================================================================================
+  PART 3 -- BUILD FILES  (project root)
+================================================================================
+
+  pom.xml
+    Maven build descriptor. Declares:
+      - Java 17 source/target
+      - Dependencies: Eclipse JDT, PlantUML, JavaFX, Gson
+      - eclipse-bundle profile: adds platform-classified JavaFX JARs for the
+        fat JAR (macOS x86_64 natives for the Eclipse plugin)
+      - maven-jar-plugin: sets Main-Class for the standalone JAR
+      - maven-shade-plugin: produces the fat JAR with OSGi headers
+      - javafx-maven-plugin: supports mvn javafx:run for the standalone app
+
+  build-eclipse-plugin.sh  [macOS only]
+    Shell script that:
+      1. Runs mvn package -Peclipse-bundle to build the fat JAR
+      2. Patches any ARM64 (aarch64) dylibs inside the JAR to x86_64 ones
+         extracted from the mac-classifier JavaFX JARs in ~/.m2
+      3. Deploys the result to GUI Portion/plugin/lib/rejd-all.jar
+    Needed on Apple Silicon Macs where the default fat JAR may bundle arm64
+    native libraries that are incompatible with the x86_64 Eclipse JVM.
+    On Windows, just run: mvn package -Peclipse-bundle (no patching needed).
+
+  HOW_TO_RUN.txt
+    Step-by-step setup and run guide for both the standalone app and the
+    Eclipse plugin, covering prerequisites, build steps, and troubleshooting.
+
+  ARCHITECTURE.txt
+    This file.
+
+================================================================================
+  PART 4 -- HOW THE PIECES CONNECT
+================================================================================
+
+  User right-clicks a Java file in Eclipse
+        │
+        ▼
+  GenerateClassDiagramAction  (plugin/ui/actions/)
+        │  resolves source directory
+        ▼
+  RejdDiagramView.generateClassDiagram()  (plugin/ui/)
+        │  spawns background thread
+        ▼
+  MultiFileProjectLoader  (gwu.rejd.extractor)
+        │  parses all .java files with JDT
+        ▼
+  ProjectModelBuilder  (gwu.rejd.extractor)
+        │  builds TypeModels, FieldModels, MethodModels
+        ▼
+  RelationshipExtractor  (gwu.rejd.extractor)
+        │  finds EXTENDS, IMPLEMENTS, ASSOCIATES, DEPENDS_ON
+        ▼
+  SimpleGraphGenerator  (gwu.rejd.generator)
+        │  serializes model to JSON
+        ▼
+  RejdDiagramView  →  Browser.execute("renderGraph(json)")
+        │  calls JavaScript in simple-diagram.html
+        ▼
+  simple-diagram.html  (resources/web/)
+        draws the interactive class diagram in the SWT Browser
+
+================================================================================

@@ -1,0 +1,463 @@
+================================================================================
+  REJD - Java AST Parser & UML Diagram Generator
+  Complete Setup and Run Guide
+================================================================================
+
+WHAT IS THIS PROJECT?
+----------------------
+REJD parses Java source code using the Eclipse JDT AST engine and generates
+UML diagrams (class diagrams and sequence diagrams) using PlantUML.
+
+It comes in two forms:
+  1. Standalone JavaFX Desktop App  -- run outside Eclipse (all platforms)
+  2. Eclipse IDE Plugin             -- integrates into Eclipse IDE
+                                       (macOS, Windows, Linux)
+
+The Eclipse plugin uses a native SWT Browser:
+  - macOS  → WebKit
+  - Windows → Microsoft Edge (WebView2) -- built in on Windows 10/11
+  - Linux  → GTK WebKit
+
+Project root:   <your-workspace>/rejd/
+Plugin source:  <your-workspace>/rejd/GUI Portion/plugin/
+
+
+================================================================================
+  PART 1 -- PREREQUISITES (Install These First)
+================================================================================
+
+─── ALL PLATFORMS ──────────────────────────────────────────────────────────────
+
+1. JAVA 17 or 21
+   --------------
+   Check your version:
+       java -version
+
+   Download (Adoptium / Temurin recommended — works on all platforms):
+       https://adoptium.net/
+
+   macOS (Homebrew):
+       brew install --cask temurin17
+
+   Windows:
+       Download the .msi installer from https://adoptium.net/ and run it.
+       Make sure JAVA_HOME is set and java is on your PATH.
+       Verify: open Command Prompt and run: java -version
+
+   Linux:
+       sudo apt install temurin-17-jdk   # Ubuntu/Debian
+       sudo dnf install temurin-17-jdk   # Fedora
+
+   IMPORTANT (Eclipse plugin on macOS Apple Silicon):
+   The Eclipse plugin's fat JAR bundles x86_64 JavaFX natives.
+   Use an x86_64 JVM and x86_64 Eclipse on Apple Silicon Macs.
+   The SWT Browser (WebKit) does NOT need JavaFX — it is native.
+
+2. APACHE MAVEN 3.8+
+   ------------------
+   Check: mvn -version
+
+   macOS:   brew install maven
+   Windows: Download from https://maven.apache.org/download.cgi
+            Unzip, then add the bin\ folder to your PATH environment variable.
+            Verify: open a new Command Prompt and run: mvn -version
+   Linux:   sudo apt install maven
+
+3. ECLIPSE IDE FOR JAVA DEVELOPERS (plugin only)
+   -----------------------------------------------
+   Download: https://www.eclipse.org/downloads/
+   Choose "Eclipse IDE for Java Developers" (not plain Eclipse).
+   This version includes the JDT plugin that REJD depends on.
+
+   macOS Apple Silicon: download eclipse-inst-jre-mac64.dmg (x86_64 version)
+   Windows:             download eclipse-inst-jre-win64.exe
+   Linux:               download eclipse-inst-jre-linux-x86_64.tar.gz
+
+   Windows-specific: The SWT Edge browser (WebView2) is built into
+   Windows 10 (version 1803+) and Windows 11. No separate install needed.
+   If you are on an older Windows build, update via Windows Update.
+
+4. GRAPHVIZ (Optional)
+   --------------------
+   Needed only for certain PlantUML layouts. Sequence diagrams work without it.
+   macOS:   brew install graphviz
+   Windows: https://graphviz.org/download/ → download the .exe installer
+   Linux:   sudo apt install graphviz
+
+
+================================================================================
+  PART 2 -- STANDALONE DESKTOP APP (JavaFX GUI)
+================================================================================
+
+Runs REJD as a standalone window outside of Eclipse. Works on macOS, Windows,
+and Linux. No plugin install needed.
+
+─── macOS & Linux ──────────────────────────────────────────────────────────────
+
+STEP 1: Open Terminal and go to the project root
+    cd ~/eclipse-workspace/rejd
+
+STEP 2: Run the JavaFX app
+    mvn javafx:run
+
+─── Windows ────────────────────────────────────────────────────────────────────
+
+STEP 1: Open Command Prompt (cmd) or PowerShell and go to the project root
+    cd C:\Users\<you>\eclipse-workspace\rejd
+
+STEP 2: Run the JavaFX app
+    mvn javafx:run
+
+If this fails with "JavaFX runtime components are missing":
+    set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.x.x.x-hotspot
+    mvn javafx:run
+
+─── HOW TO USE THE GUI ─────────────────────────────────────────────────────────
+
+  - Click "Open Folder" to load an entire Java project folder.
+    All .java files are discovered automatically.
+  - Click "Add Files" to load individual .java files.
+  - The "Class Diagram" tab renders a UML class diagram automatically.
+  - Use the "Scope" dropdown to filter the diagram by package.
+  - Right-click a class node in the diagram for the "Add Note" menu.
+  - Click "Export" in the toolbar to save the class diagram as a PNG.
+  - Switch to the "Sequence Diagram" tab after generating a sequence diagram.
+
+─── CLI ENTRY POINT (parse summary only) ───────────────────────────────────────
+
+Run the parser on the default sample file and print a model summary to stdout:
+    mvn exec:java
+
+This parses src/samples/Sample.java and prints:
+    - Package name
+    - Imports list
+    - Discovered types (classes, interfaces, enums)
+    - Any parse errors or warnings
+
+Parse a custom file:
+    mvn exec:java -Dexec.args="path/to/YourFile.java"
+
+Note: The CLI no longer writes files or generates PNGs.
+      For full diagram generation use the standalone GUI: mvn javafx:run
+      For the Eclipse plugin see: GUI Portion/plugin/
+
+
+================================================================================
+  PART 3 -- ECLIPSE PLUGIN
+================================================================================
+
+The plugin (GUI Portion/plugin/) integrates REJD into Eclipse. It adds a
+"REJD" menu to the main menu bar and right-click context menus in the
+Package Explorer. Uses a native SWT Browser — no JavaFX runtime required.
+
+──────────────────────────────────────────────────────────────────────────────
+  STEP A: BUILD THE CORE JAR (rejd-all.jar)
+──────────────────────────────────────────────────────────────────────────────
+
+The plugin depends on a fat JAR bundling REJD core + PlantUML + JDT + Gson.
+
+┌── macOS (Apple Silicon / x86_64) ─────────────────────────────────────────┐
+│                                                                            │
+│  Use the build script (handles ARM64 → x86_64 dylib patching):            │
+│                                                                            │
+│      cd ~/eclipse-workspace/rejd                                           │
+│      chmod +x build-eclipse-plugin.sh                                      │
+│      ./build-eclipse-plugin.sh                                             │
+│                                                                            │
+│  This script:                                                              │
+│    a) Runs: mvn package -Peclipse-bundle                                   │
+│    b) Patches ARM64 dylibs to x86_64 for the x86_64 Eclipse JVM           │
+│    c) Copies the result to: GUI Portion/plugin/lib/rejd-all.jar            │
+│                                                                            │
+│  OR run Maven directly (skip dylib patching if already on x86_64):        │
+│      mvn package -Peclipse-bundle                                          │
+│      cp target/rejd-0.0.1-SNAPSHOT-eclipse-plugin.jar \                   │
+│         "GUI Portion/plugin/lib/rejd-all.jar"                              │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌── Windows ─────────────────────────────────────────────────────────────────┐
+│                                                                            │
+│  Open Command Prompt or PowerShell in the project root, then:             │
+│                                                                            │
+│      mvn package -Peclipse-bundle                                          │
+│                                                                            │
+│  Then copy the output JAR:                                                 │
+│      copy target\rejd-0.0.1-SNAPSHOT-eclipse-plugin.jar ^                 │
+│           "GUI Portion\plugin\lib\rejd-all.jar"                            │
+│                                                                            │
+│  (PowerShell version):                                                     │
+│      Copy-Item target\rejd-0.0.1-SNAPSHOT-eclipse-plugin.jar ^            │
+│        "GUI Portion\plugin\lib\rejd-all.jar"                               │
+│                                                                            │
+│  No dylib patching needed on Windows — the Maven build produces a         │
+│  compatible JAR directly.                                                  │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌── Linux ────────────────────────────────────────────────────────────────────┐
+│                                                                            │
+│      mvn package -Peclipse-bundle                                          │
+│      cp target/rejd-0.0.1-SNAPSHOT-eclipse-plugin.jar \                   │
+│         "GUI Portion/plugin/lib/rejd-all.jar"                              │
+│                                                                            │
+│  No patching needed. The SWT Browser uses GTK WebKit automatically.       │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+
+──────────────────────────────────────────────────────────────────────────────
+  STEP B: IMPORT THE PLUGIN PROJECT INTO ECLIPSE
+──────────────────────────────────────────────────────────────────────────────
+
+1. Open Eclipse.
+2. File > Import > General > Existing Projects into Workspace
+3. Click "Browse" and select:
+       <workspace>/rejd/GUI Portion/plugin
+4. Make sure the project "plugin" is checked, then click "Finish".
+5. Also import the core Maven project if needed:
+       File > Import > Maven > Existing Maven Projects
+       Browse to: <workspace>/rejd
+
+──────────────────────────────────────────────────────────────────────────────
+  STEP C: VERIFY THE BUILD PATH
+──────────────────────────────────────────────────────────────────────────────
+
+The plugin project needs rejd-all.jar on its build path.
+If Eclipse shows red errors about missing classes:
+  1. Right-click the "plugin" project > Build Path > Configure Build Path
+  2. Under the "Libraries" tab, confirm that:
+         lib/rejd-all.jar
+     is listed. If not, click "Add JARs..." and add it from the lib/ folder.
+
+──────────────────────────────────────────────────────────────────────────────
+  STEP D: LAUNCH THE PLUGIN (Run as Eclipse Application)
+──────────────────────────────────────────────────────────────────────────────
+
+1. In Eclipse, open:  GUI Portion/plugin/plugin.xml
+2. Click "Launch an Eclipse application" in the plugin.xml editor,
+   OR right-click the plugin project > Run As > Eclipse Application.
+
+   This opens a second Eclipse window (the "runtime Eclipse") with the
+   REJD plugin installed.
+
+3. In the runtime Eclipse window:
+   - A login dialog appears at startup (confirms your OS username).
+   - The "REJD Diagrams" view opens automatically.
+   - Open any Java project in the runtime Eclipse.
+   - Generate diagrams via:
+       Main menu: REJD > Open Java File...
+                  REJD > Generate Class Diagram
+                  REJD > Generate Sequence Diagram
+       Right-click any .java file, package, or project in Package Explorer:
+                  REJD Diagrams > Generate Class Diagram
+                  REJD Diagrams > Generate Sequence Diagram
+   - Show the view manually: Window > Show View > Other... > REJD Diagrams
+
+   SWT Browser per platform:
+     macOS   → WebKit (built-in, no setup needed)
+     Windows → Edge/WebView2 (built-in on Windows 10/11, no setup needed)
+     Linux   → GTK WebKit (install libwebkit2gtk if missing, see Troubleshooting)
+
+──────────────────────────────────────────────────────────────────────────────
+  STEP E: EXPORT AS A DEPLOYABLE PLUGIN (optional)
+──────────────────────────────────────────────────────────────────────────────
+
+To produce a .jar you can drop into Eclipse's dropins/ folder:
+  1. Right-click the plugin project > Export > Plug-in Development >
+     Deployable plug-ins and fragments
+  2. Choose a destination directory.
+  3. Copy the exported .jar to:
+         <Eclipse install dir>/dropins/
+  4. Restart Eclipse. The REJD plugin loads automatically.
+
+
+================================================================================
+  PART 4 -- PROJECT STRUCTURE
+================================================================================
+
+rejd/
+├── pom.xml                          Maven build (Java 17, JavaFX 17.0.10)
+├── build-eclipse-plugin.sh          macOS build script for rejd-all.jar
+├── HOW_TO_RUN.txt                   This file
+├── ARCHITECTURE.txt                 Detailed description of every source file
+│
+├── src/main/java/gwu/rejd/
+│   ├── Main.java                    CLI entry point
+│   ├── ASTTreePrinter.java          AST text tree formatter
+│   ├── extractor/                   Parses .java files → ProjectModel
+│   ├── generator/                   ProjectModel → PlantUML / JSON
+│   ├── gui/                         Standalone JavaFX app (RejdApp)
+│   ├── model/                       Data models (TypeModel, MethodModel, …)
+│   ├── notes/                       Note persistence (JSON via Gson)
+│   └── util/                        Utilities (UserContext, TypeNameUtils)
+│
+├── src/main/resources/web/
+│   └── simple-diagram.html          Browser-based interactive diagram renderer
+│
+├── src/samples/                     Sample .java files for testing
+│   ├── Sample.java
+│   ├── UniversitySample.java
+│   ├── HelloWorld.java
+│   ├── SimpleCalculator.java
+│   └── Greeting.java
+│
+├── src/test/                        JUnit tests
+│
+└── GUI Portion/
+    └── plugin/                      Eclipse plugin project
+        ├── plugin.xml               Extension point declarations
+        ├── META-INF/MANIFEST.MF     OSGi bundle manifest
+        ├── build.properties         PDE build descriptor
+        ├── lib/
+        │   ├── rejd-all.jar         Fat JAR (built by build script)
+        │   └── javafx-swt.jar       Legacy SWT↔FX bridge (not active)
+        ├── resources/web/
+        │   └── simple-diagram.html  Diagram renderer (plugin copy)
+        └── src/plugin/
+            ├── ui/                  RejdDiagramView + tree providers
+            │   └── actions/         GenerateClassDiagramAction, etc.
+            └── internal/            StartupLogin, handlers, LoginDialog
+
+
+================================================================================
+  PART 5 -- DEPENDENCIES
+================================================================================
+
+All dependencies download automatically from Maven Central on first build.
+
+  Dependency               Version     Purpose
+  -----------------------  ----------  ----------------------------------------
+  org.eclipse.jdt.core     3.37.0      Java AST parser (Eclipse JDT)
+  net.sourceforge.plantuml 1.2024.3    UML rendering (PlantUML)
+  org.openjfx javafx-*     17.0.10     JavaFX UI (standalone app only)
+  com.google.code.gson     2.10.1      JSON serialization for notes
+
+Eclipse plugin also requires these OSGi bundles (provided by Eclipse at runtime):
+  org.eclipse.swt
+  org.eclipse.jface
+  org.eclipse.ui, org.eclipse.ui.ide
+  org.eclipse.core.runtime, org.eclipse.core.resources
+  org.eclipse.jdt.core, org.eclipse.jdt.ui
+
+
+================================================================================
+  PART 6 -- QUICK REFERENCE COMMANDS
+================================================================================
+
+  # Compile the project
+  mvn compile
+
+  # Run standalone JavaFX GUI
+  mvn javafx:run
+
+  # Run CLI parser on the default sample file (prints model summary to stdout)
+  mvn exec:java
+
+  # Run CLI parser on a specific file
+  mvn exec:java -Dexec.args="src/samples/UniversitySample.java"
+
+  # Build standard JAR
+  mvn package
+
+  # Build fat JAR for Eclipse plugin
+  mvn package -Peclipse-bundle
+
+  # macOS: Build fat JAR + patch dylibs + deploy to plugin lib/
+  ./build-eclipse-plugin.sh
+
+  # Windows: Build fat JAR and copy to plugin lib/
+  mvn package -Peclipse-bundle
+  copy target\rejd-0.0.1-SNAPSHOT-eclipse-plugin.jar "GUI Portion\plugin\lib\rejd-all.jar"
+
+  # Run tests
+  mvn test
+
+  # Clean build artifacts
+  mvn clean
+
+
+================================================================================
+  PART 7 -- TROUBLESHOOTING
+================================================================================
+
+── STANDALONE APP ──────────────────────────────────────────────────────────────
+
+Problem: "mvn javafx:run" fails — "JavaFX runtime components are missing"
+Fix (macOS/Linux):
+    export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+    mvn javafx:run
+
+Fix (Windows):
+    set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.x.x-hotspot
+    mvn javafx:run
+
+Problem: "mvn" is not recognized on Windows
+Fix: Add Maven's bin\ directory to the PATH environment variable:
+    Control Panel > System > Advanced > Environment Variables
+    Edit PATH and add: C:\path\to\apache-maven-3.x.x\bin
+    Open a new Command Prompt and verify: mvn -version
+
+── ECLIPSE PLUGIN (all platforms) ─────────────────────────────────────────────
+
+Problem: Red errors in Eclipse — "package gwu.rejd.* does not exist"
+Fix: lib/rejd-all.jar is missing or not on the build path.
+    1. Run the build step (STEP A above) to produce rejd-all.jar
+    2. Confirm: GUI Portion/plugin/lib/rejd-all.jar exists
+    3. Right-click plugin project > Refresh (F5)
+    4. If still missing: Build Path > Configure Build Path > Add JARs
+
+Problem: Plugin shows blank/empty diagram panel
+Fix: The SWT Browser may not have loaded the HTML. Check the Eclipse Console
+    tab for REJD log lines. If you see "simple-diagram.html not found",
+    make sure resources/ is included in the build path and plugin.xml
+    lists resources/ in bin.includes.
+
+── ECLIPSE PLUGIN (macOS specific) ─────────────────────────────────────────────
+
+Problem: "UnsatisfiedLinkError" or blank diagram on macOS
+Fix: Your Eclipse is running on an ARM64 (Apple Silicon) JVM but the
+    JavaFX natives in rejd-all.jar are x86_64.
+    → Use the x86_64 version of Eclipse (eclipse-inst-jre-mac64.dmg)
+    → Use an x86_64 JVM: Download Temurin 17 x86_64 from adoptium.net
+    → Rebuild rejd-all.jar: ./build-eclipse-plugin.sh
+    The SWT WebKit browser itself does not need JavaFX and works fine on
+    Apple Silicon — only the sequence diagram renderer uses PlantUML (inside
+    the JAR) which is pure Java and architecture-independent.
+
+Problem: "rejd-all.jar" has wrong architecture dylibs
+Fix: Run the build script which patches them automatically:
+    ./build-eclipse-plugin.sh
+
+── ECLIPSE PLUGIN (Windows specific) ──────────────────────────────────────────
+
+Problem: SWT Browser shows blank or Edge WebView2 error
+Fix: Ensure Microsoft Edge (Chromium-based) is installed and up to date.
+    WebView2 ships with Windows 10 (1803+) and Windows 11 automatically.
+    If missing, download WebView2 Runtime:
+        https://developer.microsoft.com/microsoft-edge/webview2/
+    Choose "Evergreen Standalone Installer".
+
+Problem: "SWT.EDGE failed" in the Eclipse Console
+Fix: Eclipse's SWT.EDGE requires the WebView2 Runtime. See above.
+    As a fallback, REJD automatically tries SWT.NONE (IE-based) on older Windows.
+    For best results use Windows 10 v1803+ or Windows 11 with Edge installed.
+
+── ECLIPSE PLUGIN (Linux specific) ─────────────────────────────────────────────
+
+Problem: SWT Browser not working on Linux
+Fix: Install the WebKit GTK library:
+    Ubuntu/Debian:  sudo apt install libwebkit2gtk-4.0-dev
+    Fedora:         sudo dnf install webkit2gtk4.0-devel
+
+── GENERAL ─────────────────────────────────────────────────────────────────────
+
+Problem: Sequence diagram generation fails
+Fix: Make sure the selected file has methods with bodies. Interfaces with
+    only abstract methods will produce empty sequence diagrams.
+    PlantUML rendering requires write access to the system temp directory.
+
+Problem: Notes not saving / loading
+Fix: Notes are stored in <projectRoot>/.rejd/notes.json
+    Make sure the project directory is writable.
+
+================================================================================
