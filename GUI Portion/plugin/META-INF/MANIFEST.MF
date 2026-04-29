@@ -8,12 +8,13 @@ Bundle-ClassPath: .,
  lib/rejd-all.jar
 Require-Bundle: org.eclipse.swt,
  org.eclipse.jface,
- org.eclipse.ui;bundle-version="3.207.400",
- org.eclipse.ui.ide;bundle-version="3.22.800",
- org.eclipse.core.runtime;bundle-version="3.34.100",
- org.eclipse.core.resources;bundle-version="3.23.100",
+ org.eclipse.ui,
+ org.eclipse.ui.ide,
+ org.eclipse.ui.workbench,
+ org.eclipse.core.runtime,
+ org.eclipse.core.resources,
  org.eclipse.jdt.core,
  org.eclipse.jdt.ui
 Automatic-Module-Name: gwu.rejd.plugin
 Bundle-ActivationPolicy: lazy
-Bundle-RequiredExecutionEnvironment: JavaSE-17
+Bundle-RequiredExecutionEnvironment: JavaSE-21

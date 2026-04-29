@@ -30,14 +30,19 @@ import org.eclipse.ui.dialogs.ListDialog;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Context-menu action: "Generate Sequence Diagram".
- * Resolves a .java source file from any selection type, parses it,
- * shows a method picker, then delegates rendering to {@link RejdDiagramView}.
+ *
+ * Single file selected  → parses that file, shows method picker.
+ * Package/project selected → loads the entire source tree, shows method picker
+ *                            across all types (same behaviour as the standalone app).
  */
 public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
 
@@ -55,72 +60,142 @@ public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
     public void run(IAction action) {
         Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
 
-        Path javaPath = resolveJavaPath();
-        if (javaPath == null) {
+        if (!(selection instanceof IStructuredSelection ss)) return;
+        Object element = ss.getFirstElement();
+
+        // Try to resolve a single .java file first
+        Path singleFile = resolveSingleJavaFile(element);
+
+        // Fall back: resolve the project source directory for multi-file loading
+        File sourceDir = (singleFile == null)
+                ? GenerateClassDiagramAction.resolveSourceDir(element)
+                : null;
+
+        if (singleFile == null && sourceDir == null) {
             MessageDialog.openInformation(shell, "REJD",
-                    "Please select a .java file to generate a sequence diagram.");
+                    "Please select a .java file, package, or project.");
             return;
         }
-
-        System.out.println("REJD: GenerateSequenceDiagramAction → " + javaPath);
 
         IWorkbenchPage page = PlatformUI.getWorkbench()
                 .getActiveWorkbenchWindow().getActivePage();
 
         new Thread(() -> {
             try {
+                ProjectModel model;
+                CompilationUnit singleCu;   // non-null only for single-file mode
                 MultiFileProjectLoader loader = new MultiFileProjectLoader();
-                ProjectModel model = loader.loadProject("project", List.of(javaPath));
-                CompilationUnit cu = loader.parseFile(javaPath);
+
+                if (singleFile != null) {
+                    // Single-file mode
+                    model    = loader.loadProject("project", List.of(singleFile));
+                    singleCu = loader.parseFile(singleFile);
+                } else {
+                    // Whole-project mode — load every .java under sourceDir
+                    List<Path> javaPaths = collectJavaPaths(sourceDir.toPath());
+                    if (javaPaths.isEmpty()) {
+                        showError(shell, "No .java files found in: " + sourceDir);
+                        return;
+                    }
+                    model    = loader.loadProject(sourceDir.getName(), javaPaths);
+                    singleCu = null;        // resolved per-method below
+                }
 
                 List<MethodEntry> methods = collectMethods(model);
                 if (methods.isEmpty()) {
-                    showError(shell, "No methods found in the selected file.");
+                    showError(shell, "No methods found in the selected source.");
                     return;
                 }
 
+                // Back to UI thread: show method picker then trigger rendering
+                final ProjectModel finalModel = model;
                 Display.getDefault().asyncExec(() -> {
                     MethodEntry chosen = pickMethod(shell, methods);
                     if (chosen == null) return;
+
+                    // For whole-project mode we need the CompilationUnit for the
+                    // chosen method's file — look it up via the source tree.
+                    CompilationUnit cu = singleCu;
+                    if (cu == null) {
+                        cu = findCuForMethod(loader, sourceDir.toPath(), chosen, finalModel);
+                        if (cu == null) {
+                            showError(shell, "Could not locate source for " + chosen.label);
+                            return;
+                        }
+                    }
+
+                    final CompilationUnit finalCu = cu;
                     try {
                         RejdDiagramView view = (RejdDiagramView) page.showView(RejdDiagramView.ID);
-                        view.generateAndShowSequenceDiagram(model, cu, chosen.methodId, chosen.label);
+                        view.generateAndShowSequenceDiagram(finalModel, finalCu,
+                                chosen.methodId, chosen.label);
                     } catch (PartInitException ex) {
                         showError(shell, "Could not open diagram view: " + ex.getMessage());
                     }
                 });
 
             } catch (IOException ex) {
-                showError(shell, "Failed to parse file:\n" + ex.getMessage());
+                showError(shell, "Failed to parse source:\n" + ex.getMessage());
             }
         }, "rejd-seq-action").start();
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // ── Resolution helpers ────────────────────────────────────────────────────
 
-    /**
-     * Resolves a Path to a .java file from any supported selection type.
-     * Returns null if the selection does not point to a .java file.
-     */
-    private Path resolveJavaPath() {
-        if (!(selection instanceof IStructuredSelection ss)) return null;
-        Object element = ss.getFirstElement();
-
-        // ICompilationUnit: .java file in Package Explorer
+    /** Returns the filesystem Path for a single selected .java file, or null. */
+    private Path resolveSingleJavaFile(Object element) {
         if (element instanceof ICompilationUnit cu) {
             org.eclipse.core.runtime.IPath loc = cu.getResource().getLocation();
             return loc != null ? loc.toFile().toPath() : null;
         }
-
-        // IFile: raw resource (Project Explorer)
         if (element instanceof IFile f && "java".equalsIgnoreCase(f.getFileExtension())) {
             org.eclipse.core.runtime.IPath loc = f.getLocation();
             return loc != null ? loc.toFile().toPath() : null;
         }
-
-        // IPackageFragment / IJavaProject / IProject: no single file — return null
         return null;
     }
+
+    /**
+     * For whole-project mode: finds and parses the .java file that declares
+     * the type owning the chosen method, then returns its CompilationUnit.
+     */
+    private CompilationUnit findCuForMethod(MultiFileProjectLoader loader,
+                                             Path sourceRoot,
+                                             MethodEntry chosen,
+                                             ProjectModel model) {
+        // Extract the FQN from the methodId: "com.example.Foo#bar():void" → "com.example.Foo"
+        String fqn = chosen.methodId.contains("#")
+                ? chosen.methodId.substring(0, chosen.methodId.indexOf('#'))
+                : null;
+        if (fqn == null) return null;
+
+        TypeModel type = model.getTypesByFqn().get(fqn);
+        if (type == null) return null;
+
+        // Convert FQN to relative file path, e.g. com/example/Foo.java
+        String relativePath = fqn.replace('.', File.separatorChar) + ".java";
+
+        try {
+            List<Path> candidates = collectJavaPaths(sourceRoot);
+            Path found = candidates.stream()
+                    .filter(p -> p.toString().replace('/', File.separatorChar)
+                                              .endsWith(relativePath))
+                    .findFirst().orElse(null);
+            return found != null ? loader.parseFile(found) : null;
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    private List<Path> collectJavaPaths(Path root) throws IOException {
+        try (Stream<Path> s = Files.walk(root)) {
+            return s.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
+                    .sorted()
+                    .collect(Collectors.toList());
+        }
+    }
+
+    // ── Method collection & picker ────────────────────────────────────────────
 
     private List<MethodEntry> collectMethods(ProjectModel model) {
         List<MethodEntry> entries = new ArrayList<>();

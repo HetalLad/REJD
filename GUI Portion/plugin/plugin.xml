@@ -49,8 +49,8 @@
    </extension>
 
    <!--
-     Context menus — Package Explorer shows Java elements as IJavaElement types,
-     NOT as IFile/IProject. We cover all five relevant object types.
+     Context menus — actions appear DIRECTLY in the right-click menu (no submenu),
+     appended to the standard "additions" group at the bottom.
    -->
    <extension point="org.eclipse.ui.popupMenus">
 
@@ -58,18 +58,15 @@
       <objectContribution
             id="gwu.rejd.contrib.compilationUnit"
             objectClass="org.eclipse.jdt.core.ICompilationUnit">
-         <menu id="gwu.rejd.menu.cu" label="REJD Diagrams" path="additions">
-            <separator name="group1"/>
-         </menu>
          <action id="gwu.rejd.cu.class"
                  label="Generate Class Diagram"
                  class="plugin.ui.actions.GenerateClassDiagramAction"
-                 menubarPath="gwu.rejd.menu.cu/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
          <action id="gwu.rejd.cu.seq"
                  label="Generate Sequence Diagram"
                  class="plugin.ui.actions.GenerateSequenceDiagramAction"
-                 menubarPath="gwu.rejd.menu.cu/group1"
+                 menubarPath="additions"
                  enablesFor="1"/>
       </objectContribution>
 
@@ -77,18 +74,15 @@
       <objectContribution
             id="gwu.rejd.contrib.package"
             objectClass="org.eclipse.jdt.core.IPackageFragment">
-         <menu id="gwu.rejd.menu.pkg" label="REJD Diagrams" path="additions">
-            <separator name="group1"/>
-         </menu>
          <action id="gwu.rejd.pkg.class"
                  label="Generate Class Diagram"
                  class="plugin.ui.actions.GenerateClassDiagramAction"
-                 menubarPath="gwu.rejd.menu.pkg/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
          <action id="gwu.rejd.pkg.seq"
                  label="Generate Sequence Diagram"
                  class="plugin.ui.actions.GenerateSequenceDiagramAction"
-                 menubarPath="gwu.rejd.menu.pkg/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
       </objectContribution>
 
@@ -96,38 +90,32 @@
       <objectContribution
             id="gwu.rejd.contrib.javaProject"
             objectClass="org.eclipse.jdt.core.IJavaProject">
-         <menu id="gwu.rejd.menu.jproj" label="REJD Diagrams" path="additions">
-            <separator name="group1"/>
-         </menu>
          <action id="gwu.rejd.jproj.class"
                  label="Generate Class Diagram"
                  class="plugin.ui.actions.GenerateClassDiagramAction"
-                 menubarPath="gwu.rejd.menu.jproj/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
          <action id="gwu.rejd.jproj.seq"
                  label="Generate Sequence Diagram"
                  class="plugin.ui.actions.GenerateSequenceDiagramAction"
-                 menubarPath="gwu.rejd.menu.jproj/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
       </objectContribution>
 
-      <!-- IFile: raw file selections (e.g. Project Explorer) -->
+      <!-- IFile: raw file selections (Project Explorer) -->
       <objectContribution
             id="gwu.rejd.contrib.file"
             objectClass="org.eclipse.core.resources.IFile"
             nameFilter="*.java">
-         <menu id="gwu.rejd.menu.file" label="REJD Diagrams" path="additions">
-            <separator name="group1"/>
-         </menu>
          <action id="gwu.rejd.file.class"
                  label="Generate Class Diagram"
                  class="plugin.ui.actions.GenerateClassDiagramAction"
-                 menubarPath="gwu.rejd.menu.file/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
          <action id="gwu.rejd.file.seq"
                  label="Generate Sequence Diagram"
                  class="plugin.ui.actions.GenerateSequenceDiagramAction"
-                 menubarPath="gwu.rejd.menu.file/group1"
+                 menubarPath="additions"
                  enablesFor="1"/>
       </objectContribution>
 
@@ -135,18 +123,15 @@
       <objectContribution
             id="gwu.rejd.contrib.project"
             objectClass="org.eclipse.core.resources.IProject">
-         <menu id="gwu.rejd.menu.proj" label="REJD Diagrams" path="additions">
-            <separator name="group1"/>
-         </menu>
          <action id="gwu.rejd.proj.class"
                  label="Generate Class Diagram"
                  class="plugin.ui.actions.GenerateClassDiagramAction"
-                 menubarPath="gwu.rejd.menu.proj/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
          <action id="gwu.rejd.proj.seq"
                  label="Generate Sequence Diagram"
                  class="plugin.ui.actions.GenerateSequenceDiagramAction"
-                 menubarPath="gwu.rejd.menu.proj/group1"
+                 menubarPath="additions"
                  enablesFor="+"/>
       </objectContribution>
 

@@ -184,8 +184,24 @@
                 <filter>
                   <artifact>*:*</artifact>
                   <excludes>
-                    <!-- Strip per-jar module descriptors; OSGi MANIFEST is set by the transformer -->
+                    <!-- Strip module descriptors; OSGi MANIFEST is set by the transformer -->
                     <exclude>module-info.class</exclude>
+                    <!--
+                      Exclude ALL Eclipse platform and OSGi classes from the fat JAR.
+                      These are provided by the Eclipse runtime via Require-Bundle in MANIFEST.MF.
+                      Bundling them causes duplicate-class conflicts (e.g. Shell, IContentProvider)
+                      that break Eclipse plugin compilation with type-mismatch errors.
+                    -->
+                    <exclude>org/eclipse/swt/**</exclude>
+                    <exclude>org/eclipse/jface/**</exclude>
+                    <exclude>org/eclipse/ui/**</exclude>
+                    <exclude>org/eclipse/core/**</exclude>
+                    <exclude>org/eclipse/osgi/**</exclude>
+                    <exclude>org/eclipse/equinox/**</exclude>
+                    <exclude>org/eclipse/debug/**</exclude>
+                    <exclude>org/eclipse/text/**</exclude>
+                    <exclude>org/osgi/**</exclude>
+                    <exclude>com/ibm/icu/**</exclude>
                   </excludes>
                 </filter>
               </filters>

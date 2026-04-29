@@ -26,8 +26,6 @@ import org.eclipse.swt.browser.Browser;
 import org.eclipse.swt.browser.BrowserFunction;
 import org.eclipse.swt.browser.ProgressAdapter;
 import org.eclipse.swt.browser.ProgressEvent;
-import org.eclipse.swt.custom.CTabFolder;
-import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -69,7 +67,6 @@ public class RejdDiagramView extends ViewPart {
     public static final String ID = "plugin.ui.RejdDiagramView";
 
     // ── SWT controls ──────────────────────────────────────────────────────────
-    private CTabFolder tabFolder;
     private Button     exportBtn;
     private TreeViewer treeViewer;
     private Browser    browser;
@@ -110,23 +107,17 @@ public class RejdDiagramView extends ViewPart {
     public void createPartControl(Composite parent) {
         System.out.println("REJD: RejdDiagramView.createPartControl()");
         parent.setLayout(new GridLayout(1, false));
+        ((GridLayout) parent.getLayout()).marginWidth  = 0;
+        ((GridLayout) parent.getLayout()).marginHeight = 0;
+        ((GridLayout) parent.getLayout()).verticalSpacing = 0;
 
-        // ── Row 1: tab bar + Export button ───────────────────────────────────
+        // ── Top toolbar: Export PNG button ────────────────────────────────────
         Composite topBar = new Composite(parent, SWT.NONE);
-        GridLayout topLayout = new GridLayout(2, false);
-        topLayout.marginHeight = 2;
-        topLayout.marginWidth  = 2;
+        GridLayout topLayout = new GridLayout(1, false);
+        topLayout.marginHeight = 3;
+        topLayout.marginWidth  = 6;
         topBar.setLayout(topLayout);
         topBar.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-
-        tabFolder = new CTabFolder(topBar, SWT.FLAT | SWT.TOP);
-        tabFolder.setSimple(false);
-        tabFolder.setTabHeight(22);
-        tabFolder.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-
-        CTabItem classTab = new CTabItem(tabFolder, SWT.NONE);
-        classTab.setText("Class Diagram");
-        tabFolder.setSelection(0);
 
         exportBtn = new Button(topBar, SWT.PUSH);
         exportBtn.setText("Export PNG");
@@ -134,27 +125,21 @@ public class RejdDiagramView extends ViewPart {
         exportBtn.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false));
         exportBtn.addListener(SWT.Selection, e -> onExport());
 
-        // ── Row 2: SashForm fills remaining space ─────────────────────────────
-        SashForm sash = new SashForm(parent, SWT.HORIZONTAL);
-        sash.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-
-        // Left: tree viewer
+        // ── Full-width browser (fills all remaining space) ────────────────────
+        // Tree viewer is still built for programmatic population; it is not
+        // rendered in the UI — users trigger generation via right-click or REJD menu.
         treeContentProvider = new ProjectTreeContentProvider();
-        treeViewer = new TreeViewer(sash, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
-        treeViewer.setContentProvider(treeContentProvider);
-        treeViewer.setLabelProvider(new ProjectTreeLabelProvider());
-        buildTreeContextMenu();
+        Composite browserWrapper = new Composite(parent, SWT.NONE);
+        browserWrapper.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        browserWrapper.setLayout(new GridLayout(1, false));
+        ((GridLayout) browserWrapper.getLayout()).marginWidth  = 0;
+        ((GridLayout) browserWrapper.getLayout()).marginHeight = 0;
 
-        // Right: native SWT Browser
-        browser = createBrowser(sash);
-        sash.setWeights(new int[]{30, 70});
-
+        browser = createBrowser(browserWrapper);
         if (browser != null) {
-            // BrowserFunctions survive page loads — register once.
+            browser.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
             registerBrowserFunctions();
-            // ProgressAdapter — one instance, guards itself with expectingClassHtml.
             setupBrowserListeners();
-            // Load the class-diagram HTML for the first time.
             loadClassHtml();
         }
         System.out.println("REJD: RejdDiagramView created, browser=" + browser);
@@ -477,8 +462,10 @@ public class RejdDiagramView extends ViewPart {
                 String json = buildGraphJson(model, DiagramScope.entireProject());
 
                 Display.getDefault().asyncExec(() -> {
-                    treeViewer.setInput(model);
-                    treeViewer.expandToLevel(2);
+                    if (treeViewer != null) {
+                        treeViewer.setInput(model);
+                        treeViewer.expandToLevel(2);
+                    }
                     if (pageLoaded) {
                         executeRender(json);
                         injectNotes();
@@ -535,6 +522,7 @@ public class RejdDiagramView extends ViewPart {
     // ── Tree context menu ─────────────────────────────────────────────────────
 
     private void buildTreeContextMenu() {
+        if (treeViewer == null) return;   // tree not rendered in full-browser mode
         Menu menu = new Menu(treeViewer.getTree());
 
         MenuItem genClass = new MenuItem(menu, SWT.PUSH);
@@ -558,15 +546,60 @@ public class RejdDiagramView extends ViewPart {
     private void onTreeGenerateSequence() {
         if (currentModel == null || currentSourceDir == null) return;
         Object sel = getTreeSelection();
-        TypeModel type = (sel instanceof TypeModel t) ? t : null;
-        if (type == null) {
-            showError("Select a class", "Select a class or interface to generate a sequence diagram.");
-            return;
+
+        if (sel instanceof TypeModel type) {
+            // Single class selected — use just that type's source file
+            generateSequenceForType(type);
+        } else {
+            // Package node, no selection, or project root — pick from all types
+            generateSequenceForProject();
         }
-        generateSequenceForType(type);
+    }
+
+    /** Opens a method picker across ALL types in the currently loaded project model. */
+    private void generateSequenceForProject() {
+        new Thread(() -> {
+            List<MethodEntry> methods = collectMethods(currentModel);
+            if (methods.isEmpty()) {
+                showError("No methods", "No methods found in the loaded project.");
+                return;
+            }
+            Display.getDefault().asyncExec(() -> {
+                Shell shell = Display.getDefault().getActiveShell();
+                MethodEntry chosen = pickMethod(shell, methods);
+                if (chosen == null) return;
+
+                // Locate the source file for the chosen method's type
+                String fqn = chosen.methodId.contains("#")
+                        ? chosen.methodId.substring(0, chosen.methodId.indexOf('#'))
+                        : null;
+                TypeModel type = (fqn != null) ? currentModel.getTypesByFqn().get(fqn) : null;
+                if (type == null) {
+                    showError("Not found", "Could not find type for method: " + chosen.label);
+                    return;
+                }
+                Path sourcePath = findSourceFile(type);
+                if (sourcePath == null) {
+                    showError("Source not found",
+                            "Could not locate source file for " + (fqn != null ? fqn : chosen.label));
+                    return;
+                }
+                new Thread(() -> {
+                    try {
+                        MultiFileProjectLoader loader = new MultiFileProjectLoader();
+                        ProjectModel fileModel = loader.loadProject("project", List.of(sourcePath));
+                        CompilationUnit cu = loader.parseFile(sourcePath);
+                        generateAndShowSequenceDiagram(fileModel, cu, chosen.methodId, chosen.label);
+                    } catch (IOException ex) {
+                        showError("Parse failed", "Failed to parse source:\\n" + ex.getMessage());
+                    }
+                }, "rejd-seq-project").start();
+            });
+        }, "rejd-seq-collect").start();
     }
 
     private Object getTreeSelection() {
+        if (treeViewer == null) return null;
         IStructuredSelection ss = treeViewer.getStructuredSelection();
         return ss.isEmpty() ? null : ss.getFirstElement();
     }
