@@ -983,6 +983,11 @@
       const lineHeight = 16;
       return paddingTop + titleHeight + dividerGap + (lines.length * lineHeight) + paddingBottom;
     }
+	
+	function truncateText(text, maxChars) {
+	  if (!text) return "";
+	  return text.length > maxChars ? text.substring(0, maxChars - 3) + "..." : text;
+	}
 
     function applyEdgeStyle(kind, line) {
       line.removeAttribute('stroke-dasharray');
@@ -1007,22 +1012,24 @@
           line.setAttribute('marker-end', 'url(#arrow-solid)');
           break;
 
-        case 'ASSOCIATES':
-          line.setAttribute('stroke', '#586070');
-          line.setAttribute('marker-end', 'url(#arrow-solid)');
-          break;
-
-        case 'AGGREGATES':
-          line.setAttribute('stroke', '#586070');
-          line.setAttribute('marker-start', 'url(#diamond-hollow)');
-          line.setAttribute('marker-end', 'url(#arrow-solid)');
-          break;
-
-        case 'COMPOSES':
-          line.setAttribute('stroke', '#586070');
-          line.setAttribute('marker-start', 'url(#diamond-solid)');
-          line.setAttribute('marker-end', 'url(#arrow-solid)');
-          break;
+		case 'DIRECTED_ASSOCIATION':
+		  line.setAttribute('stroke', '#586070');
+		  line.setAttribute('marker-end', 'url(#arrow-open)');
+		  break;
+	
+		case 'ASSOCIATES':
+		  line.setAttribute('stroke', '#586070');
+		  break;
+	
+		case 'AGGREGATES':
+		  line.setAttribute('stroke', '#586070');
+		  line.setAttribute('marker-start', 'url(#diamond-hollow)');
+		  break;
+	
+		case 'COMPOSES':
+		  line.setAttribute('stroke', '#586070');
+		  line.setAttribute('marker-start', 'url(#diamond-solid)');
+		  break;
 
         default:
           line.setAttribute('stroke', '#586070');
@@ -1036,6 +1043,7 @@
         case 'EXTENDS': return 'extends';
         case 'IMPLEMENTS': return 'implements';
         case 'USES': return 'uses';
+		case 'DIRECTED_ASSOCIATION': return 'directed';
         case 'ASSOCIATES': return 'associates';
         case 'AGGREGATES': return 'aggregates';
         case 'COMPOSES': return 'composes';
@@ -1088,25 +1096,29 @@
         }
 
         const nodes = {};
-        const width = 280;
+		const defaultWidth = 280;
+		const expandedWidth = 520;
         const cols = 4;
+		
+		const expandedNodes = window.expandedNodes || {};
+		window.expandedNodes = expandedNodes;
 
         graph.nodes.forEach(function(n, i) {
           const memberLines = n.members ? n.members.split('\n').filter(x => x.trim().length > 0) : [];
-          const x = 100 + (i % cols) * 350;
+		  const x = 100 + (i % cols) * 620;
           const y = 60 + Math.floor(i / cols) * 170;
           const height = estimateNodeHeight(memberLines);
 
           nodes[n.id] = {
             x: x,
             y: y,
-            width: width,
+			width: expandedNodes[n.id] ? expandedWidth : defaultWidth,
             height: height,
             data: n,
             memberLines: memberLines
           };
 
-          nodeAnchors[n.id] = { x: x + width + 8, y: y + 12 };
+		  nodeAnchors[n.id] = { x: x + nodes[n.id].width + 8, y: y + 12 };
         });
 
         graph.edges.forEach(function(e) {
@@ -1161,7 +1173,7 @@
           title.setAttribute('class', 'node-title');
           title.setAttribute('x', 14);
           title.setAttribute('y', 27);
-          title.textContent = n.data.label;
+		  title.textContent = expandedNodes[id] ? n.data.label : truncateText(n.data.label, 26);
           g.appendChild(title);
 
           const divider = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1181,7 +1193,7 @@
             const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
             tspan.setAttribute('x', 14);
             tspan.setAttribute('dy', idx === 0 ? 0 : 16);
-            tspan.textContent = lineText;
+			tspan.textContent = expandedNodes[id] ? lineText : truncateText(lineText, 42);
             text.appendChild(tspan);
           });
 
@@ -1256,23 +1268,31 @@
         let offsetX = 0;
         let offsetY = 0;
 
-        viewport.querySelectorAll('.node').forEach(function(nodeEl) {
-          nodeEl.addEventListener('mousedown', function(e) {
-            if (e.button !== 0) return;
-            if (e.target.classList.contains('note-badge')) return;
-            const id = nodeEl.getAttribute('data-id');
-            dragged = nodes[id];
-            offsetX = e.clientX - dragged.x;
-            offsetY = e.clientY - dragged.y;
-            e.stopPropagation();
-          });
-          nodeEl.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const id = nodeEl.getAttribute('data-id');
-            showContextMenu(e.clientX, e.clientY, id);
-          });
-        });
+		viewport.querySelectorAll('.node').forEach(function(nodeEl) {
+		  nodeEl.addEventListener('dblclick', function(e) {
+		    e.stopPropagation();
+		    const id = nodeEl.getAttribute('data-id');
+		    expandedNodes[id] = !expandedNodes[id];
+		    renderGraph(lastRenderedGraph);
+		  });
+
+		  nodeEl.addEventListener('mousedown', function(e) {
+		    if (e.button !== 0) return;
+		    if (e.target.classList.contains('note-badge')) return;
+		    const id = nodeEl.getAttribute('data-id');
+		    dragged = nodes[id];
+		    offsetX = e.clientX - dragged.x;
+		    offsetY = e.clientY - dragged.y;
+		    e.stopPropagation();
+		  });
+
+		  nodeEl.addEventListener('contextmenu', function(e) {
+		    e.preventDefault();
+		    e.stopPropagation();
+		    const id = nodeEl.getAttribute('data-id');
+		    showContextMenu(e.clientX, e.clientY, id);
+		  });
+		});
 
         document.addEventListener('mousemove', function(e) {
           if (!dragged) return;
@@ -1411,7 +1431,29 @@
         var vb = svg.viewBox.baseVal;
         var w = vb.width || svg.getBoundingClientRect().width || 1200;
         var h = vb.height || svg.getBoundingClientRect().height || 800;
-        var data = new XMLSerializer().serializeToString(svg);
+		var clone = svg.cloneNode(true);
+
+		var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+		style.textContent = `
+		  .node-shadow { fill: rgba(0,0,0,0.10); }
+		  .node-body { fill: #fff9cc; stroke: #6c63ff; stroke-width: 2; }
+		  .node-header { fill: #ede4ff; stroke: #6c63ff; stroke-width: 2; }
+		  .node-title { font-size: 15px; font-weight: 700; fill: #2f2f44; }
+		  .node-divider { stroke: #cfc5ff; stroke-width: 1.5; }
+		  .node-text { font-size: 12px; fill: #4c5670; }
+		  .edge { stroke-width: 2.4; fill: none; }
+		  .edge-label { font-size: 11px; fill: #374151; font-weight: 700; }
+		  .note-badge { fill: #6c63ff; stroke: #ffffff; stroke-width: 2; }
+		  .note-badge-text { fill: white; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+		`;
+
+		clone.insertBefore(style, clone.firstChild);
+
+		var data = new XMLSerializer().serializeToString(clone);
+
+		if (!data.includes('xmlns="http://www.w3.org/2000/svg"')) {
+		  data = data.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+		}
         var canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;

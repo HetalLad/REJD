@@ -57,10 +57,13 @@ public class RelationshipExtractor {
                     if (referencedType.equals(sourceSimple)) continue;
 
                     RelationshipKind kind;
+
                     if (collectionLike || arrayLike) {
                         kind = RelationshipKind.AGGREGATES;
+                    } else if (field.getModifiers().contains("final")) {
+                        kind = RelationshipKind.COMPOSES;
                     } else {
-                        kind = RelationshipKind.ASSOCIATES;
+                        kind = RelationshipKind.DIRECTED_ASSOCIATION;
                     }
 
                     relationships.add(new RelationshipModel(sourceFqn, referencedType, kind));
