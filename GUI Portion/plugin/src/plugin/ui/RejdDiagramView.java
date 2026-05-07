@@ -390,8 +390,8 @@ public class RejdDiagramView extends ViewPart {
         String json = buildGraphJson(model, scope);
         Display.getDefault().asyncExec(() -> {
             if (pageLoaded) {
+            	injectNotes();
                 executeRender(json);
-                injectNotes();
             } else {
                 pendingJson = json;
                 if (!expectingClassHtml) loadClassHtml();  // reload after sequence view
@@ -480,8 +480,8 @@ public class RejdDiagramView extends ViewPart {
                     treeViewer.setInput(model);
                     treeViewer.expandToLevel(2);
                     if (pageLoaded) {
+                    	injectNotes();
                         executeRender(json);
-                        injectNotes();
                     } else {
                         pendingJson = json;
                         if (!expectingClassHtml) loadClassHtml();  // reload after sequence view

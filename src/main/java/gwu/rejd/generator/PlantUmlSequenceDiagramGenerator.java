@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class PlantUmlSequenceDiagramGenerator {
+	
+	private static final int MAX_CALL_DEPTH = 3;
 
     /**
      * Generates a PlantUML sequence diagram for the method identified by {@code methodId}.
@@ -24,6 +26,7 @@ public class PlantUmlSequenceDiagramGenerator {
      * @return valid PlantUML sequence diagram string
      * @throws IllegalArgumentException if no matching method is found
      */
+	
     public String generate(ProjectModel projectModel, CompilationUnit cu, String methodId) {
         // --- Locate the owning type simple name from the methodId ---
         int hash = methodId.indexOf('#');
@@ -81,7 +84,7 @@ public class PlantUmlSequenceDiagramGenerator {
         participants.add(callerSimple);
         for (CallRecord call : collector.calls) {
             String callee = resolveCallee(call.rawCallee, knownSimpleNames, localVars, callerSimple);
-            if (callee != null) participants.add(callee);
+            participants.add(callee != null ? callee : "External");
         }
 
         sb.append("actor User\n");
@@ -95,17 +98,18 @@ public class PlantUmlSequenceDiagramGenerator {
         sb.append("User -> ").append(callerSimple).append(" : ").append(entryMethodName).append("()\n");
         sb.append("activate ").append(callerSimple).append("\n\n");
 
-        // Each collected call
-        for (CallRecord call : collector.calls) {
-            String callee = resolveCallee(call.rawCallee, knownSimpleNames, localVars, callerSimple);
-            if (callee == null) continue; // skip calls to unrecognised / external types
-
-            sb.append(callerSimple).append(" -> ").append(callee)
-              .append(" : ").append(call.label).append("\n");
-            sb.append("activate ").append(callee).append("\n");
-            sb.append("deactivate ").append(callee).append("\n");
-        }
-
+     // Each collected call, including nested method calls when found in the same CompilationUnit
+        emitCallsRecursive(
+                sb,
+                callerSimple,
+                collector.calls,
+                knownSimpleNames,
+                localVars,
+                cu,
+                0,
+                new LinkedHashSet<>()
+        );
+        
         sb.append("\ndeactivate ").append(callerSimple).append("\n");
         sb.append("\n@enduml\n");
         return sb.toString();
@@ -270,6 +274,118 @@ public class PlantUmlSequenceDiagramGenerator {
         }
 
         return null; // unrecognised — skip
+    }
+    
+    private void emitCallsRecursive(
+            StringBuilder sb,
+            String caller,
+            List<CallRecord> calls,
+            Set<String> knownSimpleNames,
+            Map<String, String> localVars,
+            CompilationUnit cu,
+            int depth,
+            Set<String> visitedMethods) {
+
+        if (depth >= MAX_CALL_DEPTH) {
+            return;
+        }
+
+        for (CallRecord call : calls) {
+            String callee = resolveCallee(call.rawCallee, knownSimpleNames, localVars, caller);
+
+            if (callee == null) {
+                callee = "External";
+            }
+
+            if (call.label.startsWith("new ")) {
+                sb.append("create ").append(callee).append("\n");
+                sb.append(caller).append(" -> ").append(callee)
+                  .append(" : <<create>> ").append(call.label).append("\n");
+            } else {
+                sb.append(caller).append(" -> ").append(callee)
+                  .append(" : ").append(call.label).append("\n");
+            }
+
+            sb.append("activate ").append(callee).append("\n");
+
+            MethodDeclaration calleeDecl = findMethodBySimpleName(cu, callee, call.label);
+
+            if (calleeDecl != null && calleeDecl.getBody() != null) {
+                String visitKey = callee + "#" + call.label;
+
+                if (!visitedMethods.contains(visitKey)) {
+                    visitedMethods.add(visitKey);
+
+                    Map<String, String> nestedLocalVars = buildLocalVarMap(calleeDecl);
+
+                    CallCollector nestedCollector = new CallCollector();
+                    calleeDecl.getBody().accept(nestedCollector);
+
+                    emitCallsRecursive(
+                            sb,
+                            callee,
+                            nestedCollector.calls,
+                            knownSimpleNames,
+                            nestedLocalVars,
+                            cu,
+                            depth + 1,
+                            visitedMethods
+                    );
+                }
+            }
+
+            sb.append("deactivate ").append(callee).append("\n");
+        }
+    }
+
+    private MethodDeclaration findMethodBySimpleName(
+            CompilationUnit cu,
+            String typeSimpleName,
+            String callLabel) {
+
+        if (callLabel == null || callLabel.startsWith("new ")) {
+            return null;
+        }
+
+        String methodName = callLabel;
+
+        if (methodName.endsWith("()")) {
+            methodName = methodName.substring(0, methodName.length() - 2);
+        }
+
+        for (Object t : cu.types()) {
+            if (t instanceof TypeDeclaration) {
+                TypeDeclaration td = (TypeDeclaration) t;
+
+                if (!td.getName().getIdentifier().equals(typeSimpleName)) {
+                    continue;
+                }
+
+                for (MethodDeclaration md : td.getMethods()) {
+                    if (!md.isConstructor()
+                            && md.getName().getIdentifier().equals(methodName)) {
+                        return md;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Map<String, String> buildLocalVarMap(MethodDeclaration methodDecl) {
+        Map<String, String> vars = new LinkedHashMap<>();
+
+        for (Object p : methodDecl.parameters()) {
+            SingleVariableDeclaration svd = (SingleVariableDeclaration) p;
+            vars.put(svd.getName().getIdentifier(), baseTypeName(svd.getType().toString()));
+        }
+
+        LocalVarCollector varCollector = new LocalVarCollector();
+        methodDecl.getBody().accept(varCollector);
+        vars.putAll(varCollector.varTypes);
+
+        return vars;
     }
 
     private static String baseTypeName(String type) {

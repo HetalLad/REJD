@@ -47,6 +47,7 @@ public class ClassDiagramView extends BorderPane {
     private final WebView  webView      = new WebView();
     private double         zoomLevel    = 1.0;
     private final Button   exportButton = new Button("Export");
+    private String currentDiagramTitle = "Class Diagram";
 
     /** In-memory mirror of the persisted notes list. */
     private final List<NoteModel> notes = new ArrayList<>();
@@ -145,6 +146,10 @@ public class ClassDiagramView extends BorderPane {
 
     public Button getExportButton() {
         return exportButton;
+    }
+    
+    public void setDiagramTitle(String title) {
+        this.currentDiagramTitle = title != null ? title : "Class Diagram";
     }
 
     /** Called by the Eclipse plugin to point this view at a specific project. */
@@ -296,12 +301,19 @@ public class ClassDiagramView extends BorderPane {
      */
     public void renderSequenceDiagram(Path pngPath, String bgCssColor) {
         String bg = bgCssColor != null ? bgCssColor : (eclipseBgColor != null ? eclipseBgColor : "#ffffff");
+
+        setDiagramTitle("Sequence Diagram");
+
         webView.getEngine().loadContent(
-            "<!DOCTYPE html><html><body style='margin:0;padding:8px;background:" + bg + "'>"
+            "<!DOCTYPE html><html><body style='margin:0;padding:8px;background:" + bg + ";font-family:Arial;'>"
+            + "<div style='font-size:14px;font-weight:bold;margin-bottom:8px;'>"
+            + escapeHtml(currentDiagramTitle)
+            + "</div>"
             + "<img src='" + pngPath.toUri().toString()
             + "' style='max-width:100%;display:block;margin:auto'>"
             + "</body></html>"
         );
+
         exportButton.setDisable(false);
     }
 

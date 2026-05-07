@@ -212,7 +212,7 @@
       top: 0;
       left: 0;
       width: 320px;
-      background: white;
+      background: rgb(255, 255, 255);
       border: 1px solid #cfd6e0;
       border-radius: 10px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.16);
@@ -285,7 +285,8 @@
       fill: white;
       font-size: 11px;
       font-weight: 700;
-      pointer-events: none;
+      pointer-events: auto;
+      cursor: pointer;
       text-anchor: middle;
       dominant-baseline: central;
     }
@@ -686,24 +687,45 @@
     }
 
     // Phase 5: called by Java on diagram open with the persisted notes array
-    function loadNotes(data) {
-      if (!data || !Array.isArray(data)) return;
-      data.forEach(function(note) {
-        if (!notesByNode[note.componentId]) notesByNode[note.componentId] = [];
-        // Avoid duplicates by id
-        var exists = notesByNode[note.componentId].some(function(n) { return n.id === note.id; });
-        if (!exists) notesByNode[note.componentId].push(note);
-      });
-      // Badges and ghosted nodes are drawn by the subsequent renderGraph() call,
-      // which reads notesByNode. Re-render open panels if any.
-      Object.keys(openPanelsByNode).forEach(function(nodeId) {
-        var panel = openPanelsByNode[nodeId];
-        if (panel) {
-          var idx = parseInt(panel.dataset.noteIndex) || 0;
-          renderNotePanelContent(panel, nodeId, idx);
-        }
-      });
-    }
+	function loadNotes(data) {
+		if (!data || !Array.isArray(data)) {
+		    if (lastRenderedGraph) {
+		        renderGraph(lastRenderedGraph);
+		    }
+		    return;
+		}
+
+	  data.forEach(function(note) {
+	    if (!note || !note.componentId) return;
+
+	    if (!notesByNode[note.componentId]) {
+	      notesByNode[note.componentId] = [];
+	    }
+
+	    var exists = notesByNode[note.componentId].some(function(n) {
+	      return n.id === note.id;
+	    });
+
+	    if (!exists) {
+	      notesByNode[note.componentId].push(note);
+	    }
+	  });
+
+	  // IMPORTANT:
+	  // If notes are loaded after the diagram is already rendered,
+	  // force a redraw so note badges appear immediately.
+	  if (lastRenderedGraph) {
+	    renderGraph(lastRenderedGraph);
+	  }
+
+	  Object.keys(openPanelsByNode).forEach(function(nodeId) {
+	    var panel = openPanelsByNode[nodeId];
+	    if (panel) {
+	      var idx = parseInt(panel.dataset.noteIndex) || 0;
+	      renderNotePanelContent(panel, nodeId, idx);
+	    }
+	  });
+	}
 
     function hideNotes() {
       document.querySelectorAll('.note-badge-icon, .note-badge, .note-badge-text').forEach(
@@ -1097,7 +1119,7 @@
 
         const nodes = {};
 		const defaultWidth = 280;
-		const expandedWidth = 520;
+		const expandedWidth = 460;
         const cols = 4;
 		
 		const expandedNodes = window.expandedNodes || {};
@@ -1193,7 +1215,7 @@
             const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
             tspan.setAttribute('x', 14);
             tspan.setAttribute('dy', idx === 0 ? 0 : 16);
-			tspan.textContent = expandedNodes[id] ? lineText : truncateText(lineText, 42);
+			tspan.textContent = expandedNodes[id] ? truncateText(lineText, 72) : truncateText(lineText, 42);
             text.appendChild(tspan);
           });
 
@@ -1216,6 +1238,15 @@
             badgeText.setAttribute('x', n.width - 16);
             badgeText.setAttribute('y', 16);
             badgeText.textContent = String(activeNotes.length);
+
+            badgeText.addEventListener('click', (function(capturedId) 
+            {
+              return function(event) 
+              {
+                event.stopPropagation();
+                openNotePanel(capturedId);
+              };
+            })(id));
             g.appendChild(badgeText);
           }
 
@@ -1268,17 +1299,25 @@
         let offsetX = 0;
         let offsetY = 0;
 
-		viewport.querySelectorAll('.node').forEach(function(nodeEl) {
-		  nodeEl.addEventListener('dblclick', function(e) {
-		    e.stopPropagation();
-		    const id = nodeEl.getAttribute('data-id');
-		    expandedNodes[id] = !expandedNodes[id];
-		    renderGraph(lastRenderedGraph);
-		  });
+		viewport.querySelectorAll('.node').forEach(function(nodeEl) 
+    {
+		nodeEl.addEventListener('dblclick', function(e) {
+		  e.stopPropagation();
+
+		  if (e.target.classList.contains('note-badge') ||
+		      e.target.classList.contains('note-badge-text')) {
+		    return;
+		  }
+
+		  const id = nodeEl.getAttribute('data-id');
+		  expandedNodes[id] = !expandedNodes[id];
+		  renderGraph(lastRenderedGraph);
+		});
 
 		  nodeEl.addEventListener('mousedown', function(e) {
 		    if (e.button !== 0) return;
-		    if (e.target.classList.contains('note-badge')) return;
+			if (e.target.classList.contains('note-badge') ||
+			    e.target.classList.contains('note-badge-text')) return;
 		    const id = nodeEl.getAttribute('data-id');
 		    dragged = nodes[id];
 		    offsetX = e.clientX - dragged.x;
@@ -1484,6 +1523,50 @@
           window.javaExportComplete(null);
         }
         console.error('REJD export error: ' + e);
+      }
+    }
+
+    // The following code block is lifted directly from source: https://www.w3schools.com/howto/howto_js_draggable.asp
+    dragElement(document.getElementById("noteDialog"));
+
+    function dragElement(elmnt) {
+      var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      if (document.getElementById(elmnt.id)) {
+        // if present, the header is where you move the DIV from:
+        document.getElementById(elmnt.id).onmousedown = dragMouseDown;
+      } else {
+        // otherwise, move the DIV from anywhere inside the DIV:
+        elmnt.onmousedown = dragMouseDown;
+      }
+
+      function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // get the mouse cursor position at startup:
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        // call a function whenever the cursor moves:
+        document.onmousemove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // calculate the new cursor position:
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        // set the element's new position:
+        elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+        elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+      }
+
+      function closeDragElement() {
+        // stop moving when mouse button is released:
+        document.onmouseup = null;
+        document.onmousemove = null;
       }
     }
   </script>
