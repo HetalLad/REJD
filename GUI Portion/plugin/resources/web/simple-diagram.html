@@ -102,13 +102,14 @@
       padding-left: 10px;
     }
 
-    .reply-row {
-      margin-bottom: 8px;
-      padding: 6px 8px;
-      background: #f9f7ff;
-      border-radius: 6px;
-      font-size: 12px;
-    }
+	.reply-row {
+	  margin-bottom: 8px;
+	  padding: 6px 8px 6px 10px;
+	  background: #f9f7ff;
+	  border-left: 3px solid #c4b8ff;
+	  border-radius: 6px;
+	  font-size: 12px;
+	}
 
     .reply-meta {
       font-size: 11px;
@@ -567,23 +568,34 @@
       noteDialog.style.display = "none";
     }
 
-    function getDefaultPanelPosition(nodeId) {
-      if (panelPositionsByNode[nodeId]) {
-        return panelPositionsByNode[nodeId];
-      }
+	function getDefaultPanelPosition(nodeId) {
+	  const canvas = document.getElementById("canvas");
+	  const rect = canvas.getBoundingClientRect();
 
-      if (nodeAnchors[nodeId]) {
-        return {
-          x: nodeAnchors[nodeId].x + 24,
-          y: nodeAnchors[nodeId].y + 24
-        };
-      }
+	  let pos;
 
-      return {
-        x: noteDialogAnchor.x + 8,
-        y: noteDialogAnchor.y + 8
-      };
-    }
+	  if (panelPositionsByNode[nodeId]) {
+	    pos = panelPositionsByNode[nodeId];
+	  } else if (nodeAnchors[nodeId]) {
+	    pos = {
+	      x: nodeAnchors[nodeId].x + 24,
+	      y: nodeAnchors[nodeId].y + 24
+	    };
+	  } else {
+	    pos = {
+	      x: noteDialogAnchor.x + 8,
+	      y: noteDialogAnchor.y + 8
+	    };
+	  }
+
+	  const panelWidth = 280;
+	  const panelHeight = 220;
+
+	  return {
+	    x: Math.max(8, Math.min(pos.x, rect.width - panelWidth - 8)),
+	    y: Math.max(8, Math.min(pos.y, rect.height - panelHeight - 8))
+	  };
+	}
 
     // ── Phase 4 + 5 helpers ───────────────────────────────────────
 
@@ -640,25 +652,36 @@
       openNotePanel(activeNodeId);
     }
 
-    function submitReply(nodeId, noteIndex, text) {
-      var notes = notesByNode[nodeId];
-      if (!notes || !notes[noteIndex]) return;
-      var note = notes[noteIndex];
+	function submitReply(nodeId, noteIndex, parentReplyId, text) {
+	  var notes = notesByNode[nodeId];
+	  if (!notes || !notes[noteIndex]) return;
 
-      var reply = {
-        id:        generateId(),
-        author:    currentAuthor,
-        timestamp: formatTimestamp(new Date()),
-        text:      text,
-        isDeleted: false
-      };
+	  var note = notes[noteIndex];
 
-      note.replies.push(reply);
-      callBridge('saveReply', note.id, JSON.stringify(reply));
+	  var reply = {
+	    id: generateId(),
+	    author: currentAuthor,
+	    timestamp: formatTimestamp(new Date()),
+	    text: text,
+	    isDeleted: false,
+	    replies: []
+	  };
 
-      var panel = openPanelsByNode[nodeId];
-      if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
-    }
+	  if (!parentReplyId) {
+	    if (!note.replies) note.replies = [];
+	    note.replies.push(reply);
+	  } else {
+	    var parent = findReplyById(note.replies, parentReplyId);
+	    if (!parent) return;
+	    if (!parent.replies) parent.replies = [];
+	    parent.replies.push(reply);
+	  }
+
+	  callBridge('saveReply', note.id, parentReplyId || '', JSON.stringify(reply));
+
+	  var panel = openPanelsByNode[nodeId];
+	  if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
+	}
 
     function deleteNote(nodeId, noteIndex) {
       var notes = notesByNode[nodeId];
@@ -674,17 +697,27 @@
       if (lastRenderedGraph) renderGraph(lastRenderedGraph);
     }
 
-    function deleteReply(nodeId, noteIndex, replyIndex) {
-      var notes = notesByNode[nodeId];
-      if (!notes || !notes[noteIndex]) return;
-      var reply = notes[noteIndex].replies[replyIndex];
-      if (!reply) return;
-      reply.isDeleted = true;
-      callBridge('deleteReply', notes[noteIndex].id, reply.id);
+	function deleteReply(nodeId, noteIndex, replyId) {
+	  var notes = notesByNode[nodeId];
+	  if (!notes || !notes[noteIndex]) return;
 
-      var panel = openPanelsByNode[nodeId];
-      if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
-    }
+	  var note = notes[noteIndex];
+	  var reply = findReplyById(note.replies, replyId);
+	  if (!reply) return;
+
+	  if (!sameUser(reply.author, currentAuthor)) {
+	    setStatus('Only the reply author can delete this reply.');
+	    return;
+	  }
+
+	  reply.isDeleted = true;
+	  callBridge('deleteReply', note.id, reply.id);
+
+	  var panel = openPanelsByNode[nodeId];
+	  if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
+
+	  if (lastRenderedGraph) renderGraph(lastRenderedGraph);
+	}
 
     // Phase 5: called by Java on diagram open with the persisted notes array
 	function loadNotes(data) {
@@ -741,6 +774,80 @@
         function(el) { el.style.display = 'block'; });
     }
 	
+	function findReplyById(replies, replyId) {
+	  if (!replies || !replyId) return null;
+
+	  for (var i = 0; i < replies.length; i++) {
+	    var reply = replies[i];
+
+	    if (reply.id === replyId) {
+	      return reply;
+	    }
+
+	    var nested = findReplyById(reply.replies, replyId);
+	    if (nested) return nested;
+	  }
+
+	  return null;
+	}
+
+	function hasActiveReplies(replies) {
+	  if (!replies) return false;
+
+	  for (var i = 0; i < replies.length; i++) {
+	    var reply = replies[i];
+
+	    if (!reply.isDeleted) {
+	      return true;
+	    }
+
+	    if (hasActiveReplies(reply.replies)) {
+	      return true;
+	    }
+	  }
+
+	  return false;
+	}
+
+	function renderRepliesHtml(replies, depth) {
+	  if (!replies || replies.length === 0) return '';
+
+	  var html = '';
+
+	  replies.forEach(function(reply) {
+		var canDelete = !reply.isDeleted &&
+		                sameUser(reply.author, currentAuthor);
+
+	    html += '<div class="reply-row" style="margin-left:' + (depth * 18) + 'px;">';
+
+	    if (reply.isDeleted) {
+	      html += '<div class="reply-deleted">[deleted]</div>';
+	    } else {
+	      html +=
+	        '<div class="reply-meta"><strong>' + escapeHtml(reply.author) + '</strong> &middot; ' +
+	        escapeHtml(reply.timestamp) + '</div>' +
+	        '<div>' + escapeHtml(reply.text) + '</div>' +
+	        '<button class="note-reply-btn reply-to-reply-btn" data-reply-id="' + reply.id + '" type="button">Reply</button>' +
+	        (canDelete ? '<button class="reply-delete-btn" data-reply-id="' + reply.id + '" type="button">Delete</button>' : '') +
+	        '<div class="reply-input-area nested-reply-area" id="reply_area_' + reply.id + '" style="display:none;">' +
+	          '<textarea class="reply-textarea" placeholder="Write a reply..."></textarea>' +
+	          '<div style="display:flex;gap:6px;margin-top:6px;">' +
+	            '<button class="noteBtn noteBtnSave nested-reply-send-btn" data-reply-id="' + reply.id + '" type="button">Send</button>' +
+	            '<button class="noteBtn noteBtnCancel nested-reply-cancel-btn" data-reply-id="' + reply.id + '" type="button">✕</button>' +
+	          '</div>' +
+	        '</div>';
+	    }
+
+	    if (reply.replies && reply.replies.length > 0) {
+	      html += renderRepliesHtml(reply.replies, depth + 1);
+	    }
+
+	    html += '</div>';
+	  });
+
+	  return html;
+	}
+	
     function renderNotePanelContent(panel, nodeId, noteIndex) {
       var notes = notesByNode[nodeId];
       if (!notes || notes.length === 0) return;
@@ -757,30 +864,15 @@
         : '<div>' + escapeHtml(note.text || note.content || '') + '</div>';
 
       // ── Reply thread ───────────────────────────────────────────
-      var repliesHtml = '';
-      if (note.replies && note.replies.length > 0) {
-        repliesHtml = '<div class="reply-thread">';
-        note.replies.forEach(function(reply, ri) {
-          var isLast = (ri === note.replies.length - 1);
-          var canDelReply = !reply.isDeleted && reply.author === currentAuthor && isLast;
-          if (reply.isDeleted) {
-            repliesHtml += '<div class="reply-row"><span class="reply-deleted">[deleted]</span></div>';
-          } else {
-            repliesHtml +=
-              '<div class="reply-row">' +
-                '<div class="reply-meta"><strong>' + escapeHtml(reply.author) + '</strong> &middot; ' + escapeHtml(reply.timestamp) + '</div>' +
-                '<div>' + escapeHtml(reply.text) + '</div>' +
-                (canDelReply ? '<button class="reply-delete-btn" data-ri="' + ri + '" type="button">Delete</button>' : '') +
-              '</div>';
-          }
-        });
-        repliesHtml += '</div>';
-      }
+	  var repliesHtml = '';
+	  if (note.replies && note.replies.length > 0) {
+	    repliesHtml = '<div class="reply-thread">' + renderRepliesHtml(note.replies, 0) + '</div>';
+	  }
 
       // ── Action buttons ─────────────────────────────────────────
-      var canDelNote = !note.isDeleted &&
-                       note.author === currentAuthor &&
-                       (!note.replies || note.replies.length === 0);
+	  var canDelNote = !note.isDeleted &&
+	  				   sameUser(note.author, currentAuthor) &&
+	                   !hasActiveReplies(note.replies);
 
       var navHtml =
         '<div class="note-panel-toolbar">' +
@@ -830,23 +922,26 @@
         });
       }
 
-      // ── Wire reply Send / Cancel ───────────────────────────────
-      var replyArea = document.getElementById(replyInputId);
-      if (replyArea) {
-        replyArea.querySelector('.reply-send-btn').addEventListener('click', function(e) {
-          e.stopPropagation();
-          var txt = replyArea.querySelector('.reply-textarea').value.trim();
-          if (!txt) return;
-          replyArea.querySelector('.reply-textarea').value = '';
-          replyArea.style.display = 'none';
-          submitReply(nodeId, safeIndex, txt);
-        });
-        replyArea.querySelector('.reply-cancel-btn').addEventListener('click', function(e) {
-          e.stopPropagation();
-          replyArea.querySelector('.reply-textarea').value = '';
-          replyArea.style.display = 'none';
-        });
-      }
+	  // ── Wire direct reply Send / Cancel ─────────────────────────
+	  var replyArea = document.getElementById(replyInputId);
+	  if (replyArea) {
+	    replyArea.querySelector('.reply-send-btn').addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      var txt = replyArea.querySelector('.reply-textarea').value.trim();
+	      if (!txt) return;
+
+	      replyArea.querySelector('.reply-textarea').value = '';
+	      replyArea.style.display = 'none';
+
+	      submitReply(nodeId, safeIndex, null, txt);
+	    });
+
+	    replyArea.querySelector('.reply-cancel-btn').addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      replyArea.querySelector('.reply-textarea').value = '';
+	      replyArea.style.display = 'none';
+	    });
+	  }
 
       // ── Wire Delete note ──────────────────────────────────────
       var delNoteBtn = body.querySelector('.note-delete-btn');
@@ -854,13 +949,63 @@
         delNoteBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteNote(nodeId, safeIndex); });
       }
 
-      // ── Wire Delete reply buttons ──────────────────────────────
-      body.querySelectorAll('.reply-delete-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          deleteReply(nodeId, safeIndex, parseInt(btn.dataset.ri));
-        });
-      });
+	  // ── Wire Delete reply buttons ──────────────────────────────
+	  body.querySelectorAll('.reply-delete-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      deleteReply(nodeId, safeIndex, btn.dataset.replyId);
+	    });
+	  });
+
+	  // ── Wire Reply-to-reply buttons ────────────────────────────
+	  body.querySelectorAll('.reply-to-reply-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+
+	      var replyId = btn.dataset.replyId;
+	      var area = document.getElementById('reply_area_' + replyId);
+
+	      if (area) {
+	        area.style.display = area.style.display === 'none' ? 'block' : 'none';
+	        if (area.style.display === 'block') {
+	          area.querySelector('.reply-textarea').focus();
+	        }
+	      }
+	    });
+	  });
+
+	  // ── Wire nested reply Send buttons ─────────────────────────
+	  body.querySelectorAll('.nested-reply-send-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+
+	      var replyId = btn.dataset.replyId;
+	      var area = document.getElementById('reply_area_' + replyId);
+	      if (!area) return;
+
+	      var txt = area.querySelector('.reply-textarea').value.trim();
+	      if (!txt) return;
+
+	      area.querySelector('.reply-textarea').value = '';
+	      area.style.display = 'none';
+
+	      submitReply(nodeId, safeIndex, replyId, txt);
+	    });
+	  });
+
+	  // ── Wire nested reply Cancel buttons ───────────────────────
+	  body.querySelectorAll('.nested-reply-cancel-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+
+	      var replyId = btn.dataset.replyId;
+	      var area = document.getElementById('reply_area_' + replyId);
+	      if (!area) return;
+
+	      area.querySelector('.reply-textarea').value = '';
+	      area.style.display = 'none';
+	    });
+	  });
     }
 
 	function openNotePanel(nodeId) {
@@ -969,6 +1114,11 @@
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
     }
+	
+	function sameUser(a, b) {
+	  return String(a || '').trim().toLowerCase() ===
+	         String(b || '').trim().toLowerCase();
+	}
 
     addNoteMenuItem.addEventListener("click", function(event) {
       event.stopPropagation();
@@ -1428,6 +1578,14 @@
           gbadgeTxt.setAttribute('x', gw - 16);
           gbadgeTxt.setAttribute('y', 16);
           gbadgeTxt.textContent = String(activeGhostNotes.length);
+		  
+		  gbadgeTxt.addEventListener('click', (function(id) {
+		    return function(ev) {
+		      ev.stopPropagation();
+		      openNotePanel(id);
+		    };
+		  })(ghostId));
+		  
           gg.appendChild(gbadgeTxt);
 
           viewport.appendChild(gg);

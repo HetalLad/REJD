@@ -246,18 +246,34 @@ public class RejdDiagramView extends ViewPart {
         };
         new BrowserFunction(browser, "_jbSaveReply") {
             @Override public Object function(Object[] args) {
-                if (args == null || args.length < 2) return null;
+                if (args == null || args.length < 3) return null;
+
                 String noteId = (String) args[0];
-                ReplyModel reply = gson.fromJson((String) args[1], ReplyModel.class);
+                String parentReplyId = (String) args[1]; // may be empty/null for direct note reply
+                ReplyModel reply = gson.fromJson((String) args[2], ReplyModel.class);
                 if (reply == null) return null;
+
                 for (NoteModel n : notes) {
                     if (noteId.equals(n.id)) {
-                        n.replies.removeIf(r -> reply.id != null && reply.id.equals(r.id));
-                        n.replies.add(reply);
+                        if (parentReplyId == null || parentReplyId.isBlank()) {
+                            n.replies.removeIf(r -> reply.id != null && reply.id.equals(r.id));
+                            n.replies.add(reply);
+                        } else {
+                            ReplyModel parent = findReplyById(n.replies, parentReplyId);
+                            if (parent != null) {
+                                if (parent.replies == null) {
+                                    parent.replies = new java.util.ArrayList<>();
+                                }
+                                parent.replies.removeIf(r -> reply.id != null && reply.id.equals(r.id));
+                                parent.replies.add(reply);
+                            }
+                        }
+
                         NoteRepository.save(projectRoot, notes);
                         break;
                     }
                 }
+
                 return null;
             }
         };
@@ -275,17 +291,21 @@ public class RejdDiagramView extends ViewPart {
         new BrowserFunction(browser, "_jbDeleteReply") {
             @Override public Object function(Object[] args) {
                 if (args == null || args.length < 2) return null;
+
                 String noteId = (String) args[0];
                 String replyId = (String) args[1];
+
                 for (NoteModel n : notes) {
                     if (noteId.equals(n.id)) {
-                        for (ReplyModel r : n.replies) {
-                            if (replyId.equals(r.id)) { r.isDeleted = true; break; }
+                        ReplyModel reply = findReplyById(n.replies, replyId);
+                        if (reply != null) {
+                            reply.isDeleted = true;
+                            NoteRepository.save(projectRoot, notes);
                         }
-                        NoteRepository.save(projectRoot, notes);
                         break;
                     }
                 }
+
                 return null;
             }
         };
@@ -310,7 +330,7 @@ public class RejdDiagramView extends ViewPart {
                 browser.execute(
                     "window.javaBridge = {" +
                     "  saveNote:    function(j)       { _jbSaveNote(j); }," +
-                    "  saveReply:   function(id,j)    { _jbSaveReply(id,j); }," +
+                    "  saveReply:   function(id,pid,j) { _jbSaveReply(id,pid,j); }," +
                     "  deleteNote:  function(id)      { _jbDeleteNote(id); }," +
                     "  deleteReply: function(nid,rid) { _jbDeleteReply(nid,rid); }" +
                     "};");
@@ -722,6 +742,23 @@ public class RejdDiagramView extends ViewPart {
             Shell shell = Display.getDefault().getActiveShell();
             org.eclipse.jface.dialogs.MessageDialog.openError(shell, title, msg);
         });
+    }
+    
+    private ReplyModel findReplyById(List<ReplyModel> replies, String replyId) {
+        if (replies == null || replyId == null) return null;
+
+        for (ReplyModel reply : replies) {
+            if (replyId.equals(reply.id)) {
+                return reply;
+            }
+
+            ReplyModel nested = findReplyById(reply.replies, replyId);
+            if (nested != null) {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     private static String escapeJs(String s) {
