@@ -1,6 +1,7 @@
 package plugin.internal;
 
 import gwu.rejd.notes.NoteModel;
+
 import gwu.rejd.notes.NotePreloadCache;
 import gwu.rejd.notes.NoteRepository;
 
@@ -17,9 +18,11 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.jface.window.Window;
 
 import java.nio.file.Path;
 import java.util.List;
+import plugin.ui.RejdDiagramView;
 
 public class StartupLogin implements IStartup {
 
@@ -34,16 +37,34 @@ public class StartupLogin implements IStartup {
         Display.getDefault().asyncExec(() -> {
             IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
             if (window == null) return;
-
-            // Lightweight login — OS username pre-filled, read-only, no password
+            
             Shell parentShell = window.getShell();
-            String username = new LoginDialog(parentShell).open();
-            if (username != null) {
-                UserContext.setCurrentUser(username);
-            }
 
+            LoginDialog dialog = new LoginDialog(parentShell);
+            
+            if (dialog.open() == Window.OK)
+            {
+            	String username = dialog.getFirstName();
+            	if (username != null) {
+                    UserContext.setCurrentUser(username);
+                }
+            	
+            	IWorkbenchPage page = window.getActivePage();
+
+                if (page != null) {
+                    RejdDiagramView view =
+                        (RejdDiagramView) page.findView(RejdDiagramView.ID);
+
+                    if (view != null) {
+                        view.setLoggedInUser(username);
+                    }
+                }
+            }
+            
+            
             listener = new FileAndProjectListner();
 
+            
             // Open REJD Diagrams view immediately so it is visible on first launch
             IWorkbenchPage page = window.getActivePage();
             if (page != null) {

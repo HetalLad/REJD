@@ -740,4 +740,23 @@ public class RejdDiagramView extends ViewPart {
         final String label, methodId;
         MethodEntry(String label, String methodId) { this.label = label; this.methodId = methodId; }
     }
+    
+    public void setLoggedInUser(String username) {
+
+        if (browser == null || browser.isDisposed()) {
+            return;
+        }
+
+        Display.getDefault().asyncExec(() -> {
+
+            if (browser == null || browser.isDisposed()) {
+                return;
+            }
+
+            browser.execute(
+                "if(typeof setCurrentAuthor==='function') " +
+                "setCurrentAuthor('" + escapeJs(username) + "');"
+            );
+        });
+    }
 }
