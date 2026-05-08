@@ -58,7 +58,7 @@ public class RejdApp extends Application {
         ClassDiagramView classDiagramView = new ClassDiagramView();
         classDiagramController = new ClassDiagramController(classDiagramView);
 
-        // ── Class diagram tab ──────────────────────────────────────────
+        // Class diagram tab
         scopeComboBox = new ComboBox<>();
         scopeComboBox.setPrefWidth(300);
         scopeComboBox.setOnAction(event -> {
@@ -81,7 +81,7 @@ public class RejdApp extends Application {
         classDiagramTab.setClosable(false);
         classDiagramTab.setContent(diagramPane);
 
-        // ── Sequence diagram tab ───────────────────────────────────────
+        // Sequence diagram tab 
         seqImageView = new ImageView();
         seqImageView.setPreserveRatio(true);
         seqImageView.setSmooth(true);
@@ -106,7 +106,7 @@ public class RejdApp extends Application {
 
         tabPane = new TabPane(classDiagramTab, sequenceTab);
 
-        // ── Left panel ─────────────────────────────────────────────────
+        // Left panel 
         Button openFolderBtn = new Button("Open Folder");
         Button addFilesBtn   = new Button("Add Files");
         Button clearBtn      = new Button("Clear");
@@ -177,7 +177,7 @@ public class RejdApp extends Application {
         leftPanel.setPrefWidth(220);
         leftPanel.setMinWidth(160);
 
-        // ── Root layout ────────────────────────────────────────────────
+        // Root layout 
         SplitPane splitPane = new SplitPane(leftPanel, tabPane);
         splitPane.setDividerPositions(0.2);
 
@@ -187,8 +187,7 @@ public class RejdApp extends Application {
         stage.show();
     }
 
-    // ── File loading ───────────────────────────────────────────────────────
-
+    // File loading 
     private void openFolder() {
         DirectoryChooser dc = new DirectoryChooser();
         dc.setTitle("Open Java Package Folder (non-recursive)");
@@ -236,8 +235,7 @@ public class RejdApp extends Application {
         renderClassDiagramAsync(all.stream().map(File::toPath).toList());
     }
 
-    // ── Class diagram ──────────────────────────────────────────────────────
-
+    // Class diagram 
     private void renderClassDiagramAsync(List<Path> paths) {
         new Thread(() -> {
             try {
@@ -263,8 +261,7 @@ public class RejdApp extends Application {
         }, "rejd-class-gen").start();
     }
 
-    // ── Sequence diagram ───────────────────────────────────────────────────
-
+    // Sequence diagram 
     private void generateSequenceDiagramAsync(Path javaPath) {
         try {
             ProjectModel model = loader.loadProject("project", List.of(javaPath));
@@ -305,8 +302,7 @@ public class RejdApp extends Application {
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
-
+    // Helpers 
     private List<MethodEntry> collectMethods(ProjectModel model) {
         List<MethodEntry> entries = new ArrayList<>();
         for (TypeModel type : model.getTypesByFqn().values()) {
