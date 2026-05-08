@@ -18,14 +18,14 @@ public class PositionPreloadCache {
                   new HashMap<>(positions));
     }
 
-    /** Returns the cached list, or an empty list if nothing was preloaded. */
+    /** Returns the cached hash map, or an empty map if nothing was preloaded. */
     public static Map<String, PositionModel> get(Path projectRoot) {
         return cache.getOrDefault(
                 projectRoot.toAbsolutePath().normalize(),
                 Collections.emptyMap());
     }
 
-    /** Removes and returns the cached list (one-shot). Returns empty list if absent. */
+    /** Removes and returns the cached hashmap (one-shot). Returns empty map if absent. */
     public static Map<String, PositionModel> drain(Path projectRoot) {
         Map<String, PositionModel>result = cache.remove(projectRoot.toAbsolutePath().normalize());
         return result != null ? result : Collections.emptyMap();
