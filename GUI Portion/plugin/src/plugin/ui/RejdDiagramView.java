@@ -788,7 +788,9 @@ public class RejdDiagramView extends ViewPart {
     }
 
     private List<Path> collectJavaPaths(Path root) throws IOException {
-        try (Stream<Path> stream = Files.walk(root)) {
+        // Files.list() — non-recursive, only .java files directly in the given folder.
+        // To include sub-packages, right-click each sub-package separately.
+        try (Stream<Path> stream = Files.list(root)) {
             return stream
                 .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
                 .sorted()

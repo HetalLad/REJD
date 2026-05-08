@@ -77,21 +77,32 @@ public class GenerateClassDiagramAction implements IObjectActionDelegate {
 
         // ── Java model types (Package Explorer) ──────────────────────────────
         if (element instanceof ICompilationUnit cu) {
-            project = cu.getJavaProject().getProject();
+            // Single file → use its parent folder (the package directory)
+            org.eclipse.core.runtime.IPath loc = cu.getResource().getLocation();
+            return loc != null ? loc.toFile().getParentFile() : null;
         } else if (element instanceof IPackageFragment pkg) {
+            // Package → resolve the actual folder on disk, not the source root.
+            // This ensures model/enums shows only enum classes, not the whole tree.
+            org.eclipse.core.runtime.IPath loc =
+                    pkg.getResource() != null ? pkg.getResource().getLocation() : null;
+            if (loc != null) return loc.toFile();
+            // Fallback: climb to source root if resource location unavailable
             project = pkg.getJavaProject().getProject();
         } else if (element instanceof IJavaProject jp) {
             project = jp.getProject();
         }
         // ── Resource types (Project Explorer / Navigator) ─────────────────────
         else if (element instanceof IFile f) {
-            project = f.getProject();
+            // Single file resource → use its parent folder
+            org.eclipse.core.runtime.IPath loc = f.getLocation();
+            return loc != null ? loc.toFile().getParentFile() : null;
         } else if (element instanceof IProject p) {
             project = p;
         }
 
         if (project == null || !project.isOpen()) return null;
 
+        // Fallback for project-level selections: prefer src/main/java → src → root
         IFolder srcMain = project.getFolder("src/main/java");
         if (srcMain.exists()) return srcMain.getLocation().toFile();
 
