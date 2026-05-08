@@ -5,6 +5,7 @@ public enum RelationshipKind {
     IMPLEMENTS,
     USES,
     ASSOCIATES,
+    DIRECTED_ASSOCIATION,
     AGGREGATES,
     COMPOSES
 }

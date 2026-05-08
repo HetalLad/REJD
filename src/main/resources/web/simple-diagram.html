@@ -102,13 +102,14 @@
       padding-left: 10px;
     }
 
-    .reply-row {
-      margin-bottom: 8px;
-      padding: 6px 8px;
-      background: #f9f7ff;
-      border-radius: 6px;
-      font-size: 12px;
-    }
+	.reply-row {
+	  margin-bottom: 8px;
+	  padding: 6px 8px 6px 10px;
+	  background: #f9f7ff;
+	  border-left: 3px solid #c4b8ff;
+	  border-radius: 6px;
+	  font-size: 12px;
+	}
 
     .reply-meta {
       font-size: 11px;
@@ -212,7 +213,7 @@
       top: 0;
       left: 0;
       width: 320px;
-      background: white;
+      background: rgb(255, 255, 255);
       border: 1px solid #cfd6e0;
       border-radius: 10px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.16);
@@ -285,7 +286,8 @@
       fill: white;
       font-size: 11px;
       font-weight: 700;
-      pointer-events: none;
+      pointer-events: auto;
+      cursor: pointer;
       text-anchor: middle;
       dominant-baseline: central;
     }
@@ -458,6 +460,16 @@
     const nodeAnchors = {};
 
     let lastRenderedGraph = null;
+	
+	const GENERAL_NOTE_ID = "General Notes";
+	
+	function createGeneralNoteId() {
+	  return GENERAL_NOTE_ID + "::" + generateId();
+	}
+
+	function isGeneralNoteId(id) {
+	  return id === GENERAL_NOTE_ID || String(id || '').startsWith(GENERAL_NOTE_ID + "::");
+	}
 
     const customMenu = document.getElementById('contextMenu');
     const addNoteMenuItem = document.getElementById('addNoteMenuItem');
@@ -554,7 +566,9 @@
       noteDialogMeta.textContent = "Component: " + activeNodeId + " | Author: " + currentAuthor;
       noteInput.value = "";
 
-      const anchor = getDefaultPanelPosition(activeNodeId);
+	  const anchor = isGeneralNoteId(activeNodeId)
+	    ? getClampedPosition(noteDialogAnchor.x + 8, noteDialogAnchor.y + 8)
+	    : getDefaultPanelPosition(activeNodeId);
       noteDialog.style.display = "block";
       noteDialog.style.top = anchor.y + "px";
       noteDialog.style.left = anchor.x + "px";
@@ -565,24 +579,67 @@
     function hideNoteDialog() {
       noteDialog.style.display = "none";
     }
+	
+	function screenToSvgPoint(clientX, clientY) {
+	  const svg = document.getElementById('svg');
+	  const pt = svg.createSVGPoint();
 
-    function getDefaultPanelPosition(nodeId) {
-      if (panelPositionsByNode[nodeId]) {
-        return panelPositionsByNode[nodeId];
-      }
+	  pt.x = clientX;
+	  pt.y = clientY;
 
-      if (nodeAnchors[nodeId]) {
-        return {
-          x: nodeAnchors[nodeId].x + 24,
-          y: nodeAnchors[nodeId].y + 24
-        };
-      }
+	  const svgPoint = pt.matrixTransform(svg.getScreenCTM().inverse());
 
-      return {
-        x: noteDialogAnchor.x + 8,
-        y: noteDialogAnchor.y + 8
-      };
-    }
+	  const viewport = document.getElementById('viewport');
+	  const panX = viewport.dataset.panX ? parseFloat(viewport.dataset.panX) : 0;
+	  const panY = viewport.dataset.panY ? parseFloat(viewport.dataset.panY) : 0;
+
+	  return {
+	    x: (svgPoint.x - panX) / currentZoom,
+	    y: (svgPoint.y - panY) / currentZoom
+	  };
+	}
+	
+	function getClampedPosition(x, y) {
+	  const canvas = document.getElementById("canvas");
+	  const rect = canvas.getBoundingClientRect();
+
+	  const panelWidth = 280;
+	  const panelHeight = 220;
+
+	  return {
+	    x: Math.max(8, Math.min(x, rect.width - panelWidth - 8)),
+	    y: Math.max(8, Math.min(y, rect.height - panelHeight - 8))
+	  };
+	}
+
+	function getDefaultPanelPosition(nodeId) {
+	  const canvas = document.getElementById("canvas");
+	  const rect = canvas.getBoundingClientRect();
+
+	  let pos;
+
+	  if (panelPositionsByNode[nodeId]) {
+	    pos = panelPositionsByNode[nodeId];
+	  } else if (nodeAnchors[nodeId]) {
+	    pos = {
+	      x: nodeAnchors[nodeId].x + 24,
+	      y: nodeAnchors[nodeId].y + 24
+	    };
+	  } else {
+	    pos = {
+	      x: noteDialogAnchor.x + 8,
+	      y: noteDialogAnchor.y + 8
+	    };
+	  }
+
+	  const panelWidth = 280;
+	  const panelHeight = 220;
+
+	  return {
+	    x: Math.max(8, Math.min(pos.x, rect.width - panelWidth - 8)),
+	    y: Math.max(8, Math.min(pos.y, rect.height - panelHeight - 8))
+	  };
+	}
 
     // ── Phase 4 + 5 helpers ───────────────────────────────────────
 
@@ -617,15 +674,21 @@
         return;
       }
 
-      var note = {
-        id:          generateId(),
-        componentId: activeNodeId,
-        author:      currentAuthor,
-        timestamp:   formatTimestamp(new Date()),
-        text:        text,
-        isDeleted:   false,
-        replies:     []
-      };
+	  var generalPos = isGeneralNoteId(activeNodeId)
+	    ? screenToSvgPoint(noteDialogAnchor.x, noteDialogAnchor.y)
+	    : null;
+
+	  var note = {
+	    id:          generateId(),
+	    componentId: activeNodeId,
+	    author:      currentAuthor,
+	    timestamp:   formatTimestamp(new Date()),
+	    text:        text,
+	    isDeleted:   false,
+	    x:            generalPos ? generalPos.x : null,
+	    y:            generalPos ? generalPos.y : null,
+	    replies:     []
+	  };
 
       if (!notesByNode[activeNodeId]) notesByNode[activeNodeId] = [];
       notesByNode[activeNodeId].push(note);
@@ -639,25 +702,36 @@
       openNotePanel(activeNodeId);
     }
 
-    function submitReply(nodeId, noteIndex, text) {
-      var notes = notesByNode[nodeId];
-      if (!notes || !notes[noteIndex]) return;
-      var note = notes[noteIndex];
+	function submitReply(nodeId, noteIndex, parentReplyId, text) {
+	  var notes = notesByNode[nodeId];
+	  if (!notes || !notes[noteIndex]) return;
 
-      var reply = {
-        id:        generateId(),
-        author:    currentAuthor,
-        timestamp: formatTimestamp(new Date()),
-        text:      text,
-        isDeleted: false
-      };
+	  var note = notes[noteIndex];
 
-      note.replies.push(reply);
-      callBridge('saveReply', note.id, JSON.stringify(reply));
+	  var reply = {
+	    id: generateId(),
+	    author: currentAuthor,
+	    timestamp: formatTimestamp(new Date()),
+	    text: text,
+	    isDeleted: false,
+	    replies: []
+	  };
 
-      var panel = openPanelsByNode[nodeId];
-      if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
-    }
+	  if (!parentReplyId) {
+	    if (!note.replies) note.replies = [];
+	    note.replies.push(reply);
+	  } else {
+	    var parent = findReplyById(note.replies, parentReplyId);
+	    if (!parent) return;
+	    if (!parent.replies) parent.replies = [];
+	    parent.replies.push(reply);
+	  }
+
+	  callBridge('saveReply', note.id, parentReplyId || '', JSON.stringify(reply));
+
+	  var panel = openPanelsByNode[nodeId];
+	  if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
+	}
 
     function deleteNote(nodeId, noteIndex) {
       var notes = notesByNode[nodeId];
@@ -673,37 +747,81 @@
       if (lastRenderedGraph) renderGraph(lastRenderedGraph);
     }
 
-    function deleteReply(nodeId, noteIndex, replyIndex) {
-      var notes = notesByNode[nodeId];
-      if (!notes || !notes[noteIndex]) return;
-      var reply = notes[noteIndex].replies[replyIndex];
-      if (!reply) return;
-      reply.isDeleted = true;
-      callBridge('deleteReply', notes[noteIndex].id, reply.id);
+	function deleteReply(nodeId, noteIndex, replyId) {
+	  var notes = notesByNode[nodeId];
+	  if (!notes || !notes[noteIndex]) return;
 
-      var panel = openPanelsByNode[nodeId];
-      if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
-    }
+	  var note = notes[noteIndex];
+	  var reply = findReplyById(note.replies, replyId);
+	  if (!reply) return;
+
+	  if (!sameUser(reply.author, currentAuthor)) {
+	    setStatus('Only the reply author can delete this reply.');
+	    return;
+	  }
+
+	  reply.isDeleted = true;
+	  callBridge('deleteReply', note.id, reply.id);
+
+	  var panel = openPanelsByNode[nodeId];
+	  if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
+
+	  if (lastRenderedGraph) renderGraph(lastRenderedGraph);
+	}
+	
+	function persistGeneralNotePosition(nodeId, x, y) {
+	  if (!isGeneralNoteId(nodeId)) return;
+
+	  var notes = notesByNode[nodeId];
+	  if (!notes) return;
+
+	  notes.forEach(function(note) {
+	    note.x = x;
+	    note.y = y;
+	    callBridge('saveNote', JSON.stringify(note));
+	  });
+	}
 
     // Phase 5: called by Java on diagram open with the persisted notes array
-    function loadNotes(data) {
-      if (!data || !Array.isArray(data)) return;
-      data.forEach(function(note) {
-        if (!notesByNode[note.componentId]) notesByNode[note.componentId] = [];
-        // Avoid duplicates by id
-        var exists = notesByNode[note.componentId].some(function(n) { return n.id === note.id; });
-        if (!exists) notesByNode[note.componentId].push(note);
-      });
-      // Badges and ghosted nodes are drawn by the subsequent renderGraph() call,
-      // which reads notesByNode. Re-render open panels if any.
-      Object.keys(openPanelsByNode).forEach(function(nodeId) {
-        var panel = openPanelsByNode[nodeId];
-        if (panel) {
-          var idx = parseInt(panel.dataset.noteIndex) || 0;
-          renderNotePanelContent(panel, nodeId, idx);
-        }
-      });
-    }
+	function loadNotes(data) {
+		if (!data || !Array.isArray(data)) {
+		    if (lastRenderedGraph) {
+		        renderGraph(lastRenderedGraph);
+		    }
+		    return;
+		}
+
+	  data.forEach(function(note) {
+	    if (!note || !note.componentId) return;
+
+	    if (!notesByNode[note.componentId]) {
+	      notesByNode[note.componentId] = [];
+	    }
+
+	    var exists = notesByNode[note.componentId].some(function(n) {
+	      return n.id === note.id;
+	    });
+
+	    if (!exists) {
+	      notesByNode[note.componentId].push(note);
+	    }
+	  });
+
+	  // IMPORTANT:
+	  // If notes are loaded after the diagram is already rendered,
+	  // force a redraw so note badges appear immediately.
+	  if (lastRenderedGraph) {
+	    renderGraph(lastRenderedGraph);
+	  }
+
+	  Object.keys(openPanelsByNode).forEach(function(nodeId) {
+	    var panel = openPanelsByNode[nodeId];
+	    if (panel) {
+	      var idx = parseInt(panel.dataset.noteIndex) || 0;
+	      renderNotePanelContent(panel, nodeId, idx);
+	    }
+	  });
+	}
 
     function hideNotes() {
       document.querySelectorAll('.note-badge-icon, .note-badge, .note-badge-text').forEach(
@@ -718,6 +836,80 @@
       document.querySelectorAll('.floating-note-panel').forEach(
         function(el) { el.style.display = 'block'; });
     }
+	
+	function findReplyById(replies, replyId) {
+	  if (!replies || !replyId) return null;
+
+	  for (var i = 0; i < replies.length; i++) {
+	    var reply = replies[i];
+
+	    if (reply.id === replyId) {
+	      return reply;
+	    }
+
+	    var nested = findReplyById(reply.replies, replyId);
+	    if (nested) return nested;
+	  }
+
+	  return null;
+	}
+
+	function hasActiveReplies(replies) {
+	  if (!replies) return false;
+
+	  for (var i = 0; i < replies.length; i++) {
+	    var reply = replies[i];
+
+	    if (!reply.isDeleted) {
+	      return true;
+	    }
+
+	    if (hasActiveReplies(reply.replies)) {
+	      return true;
+	    }
+	  }
+
+	  return false;
+	}
+
+	function renderRepliesHtml(replies, depth) {
+	  if (!replies || replies.length === 0) return '';
+
+	  var html = '';
+
+	  replies.forEach(function(reply) {
+		var canDelete = !reply.isDeleted &&
+		                sameUser(reply.author, currentAuthor);
+
+	    html += '<div class="reply-row" style="margin-left:' + (depth * 18) + 'px;">';
+
+	    if (reply.isDeleted) {
+	      html += '<div class="reply-deleted">[deleted]</div>';
+	    } else {
+	      html +=
+	        '<div class="reply-meta"><strong>' + escapeHtml(reply.author) + '</strong> &middot; ' +
+	        escapeHtml(reply.timestamp) + '</div>' +
+	        '<div>' + escapeHtml(reply.text) + '</div>' +
+	        '<button class="note-reply-btn reply-to-reply-btn" data-reply-id="' + reply.id + '" type="button">Reply</button>' +
+	        (canDelete ? '<button class="reply-delete-btn" data-reply-id="' + reply.id + '" type="button">Delete</button>' : '') +
+	        '<div class="reply-input-area nested-reply-area" id="reply_area_' + reply.id + '" style="display:none;">' +
+	          '<textarea class="reply-textarea" placeholder="Write a reply..."></textarea>' +
+	          '<div style="display:flex;gap:6px;margin-top:6px;">' +
+	            '<button class="noteBtn noteBtnSave nested-reply-send-btn" data-reply-id="' + reply.id + '" type="button">Send</button>' +
+	            '<button class="noteBtn noteBtnCancel nested-reply-cancel-btn" data-reply-id="' + reply.id + '" type="button">✕</button>' +
+	          '</div>' +
+	        '</div>';
+	    }
+
+	    if (reply.replies && reply.replies.length > 0) {
+	      html += renderRepliesHtml(reply.replies, depth + 1);
+	    }
+
+	    html += '</div>';
+	  });
+
+	  return html;
+	}
 	
     function renderNotePanelContent(panel, nodeId, noteIndex) {
       var notes = notesByNode[nodeId];
@@ -735,30 +927,15 @@
         : '<div>' + escapeHtml(note.text || note.content || '') + '</div>';
 
       // ── Reply thread ───────────────────────────────────────────
-      var repliesHtml = '';
-      if (note.replies && note.replies.length > 0) {
-        repliesHtml = '<div class="reply-thread">';
-        note.replies.forEach(function(reply, ri) {
-          var isLast = (ri === note.replies.length - 1);
-          var canDelReply = !reply.isDeleted && reply.author === currentAuthor && isLast;
-          if (reply.isDeleted) {
-            repliesHtml += '<div class="reply-row"><span class="reply-deleted">[deleted]</span></div>';
-          } else {
-            repliesHtml +=
-              '<div class="reply-row">' +
-                '<div class="reply-meta"><strong>' + escapeHtml(reply.author) + '</strong> &middot; ' + escapeHtml(reply.timestamp) + '</div>' +
-                '<div>' + escapeHtml(reply.text) + '</div>' +
-                (canDelReply ? '<button class="reply-delete-btn" data-ri="' + ri + '" type="button">Delete</button>' : '') +
-              '</div>';
-          }
-        });
-        repliesHtml += '</div>';
-      }
+	  var repliesHtml = '';
+	  if (note.replies && note.replies.length > 0) {
+	    repliesHtml = '<div class="reply-thread">' + renderRepliesHtml(note.replies, 0) + '</div>';
+	  }
 
       // ── Action buttons ─────────────────────────────────────────
-      var canDelNote = !note.isDeleted &&
-                       note.author === currentAuthor &&
-                       (!note.replies || note.replies.length === 0);
+	  var canDelNote = !note.isDeleted &&
+	  				   sameUser(note.author, currentAuthor) &&
+	                   !hasActiveReplies(note.replies);
 
       var navHtml =
         '<div class="note-panel-toolbar">' +
@@ -808,23 +985,26 @@
         });
       }
 
-      // ── Wire reply Send / Cancel ───────────────────────────────
-      var replyArea = document.getElementById(replyInputId);
-      if (replyArea) {
-        replyArea.querySelector('.reply-send-btn').addEventListener('click', function(e) {
-          e.stopPropagation();
-          var txt = replyArea.querySelector('.reply-textarea').value.trim();
-          if (!txt) return;
-          replyArea.querySelector('.reply-textarea').value = '';
-          replyArea.style.display = 'none';
-          submitReply(nodeId, safeIndex, txt);
-        });
-        replyArea.querySelector('.reply-cancel-btn').addEventListener('click', function(e) {
-          e.stopPropagation();
-          replyArea.querySelector('.reply-textarea').value = '';
-          replyArea.style.display = 'none';
-        });
-      }
+	  // ── Wire direct reply Send / Cancel ─────────────────────────
+	  var replyArea = document.getElementById(replyInputId);
+	  if (replyArea) {
+	    replyArea.querySelector('.reply-send-btn').addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      var txt = replyArea.querySelector('.reply-textarea').value.trim();
+	      if (!txt) return;
+
+	      replyArea.querySelector('.reply-textarea').value = '';
+	      replyArea.style.display = 'none';
+
+	      submitReply(nodeId, safeIndex, null, txt);
+	    });
+
+	    replyArea.querySelector('.reply-cancel-btn').addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      replyArea.querySelector('.reply-textarea').value = '';
+	      replyArea.style.display = 'none';
+	    });
+	  }
 
       // ── Wire Delete note ──────────────────────────────────────
       var delNoteBtn = body.querySelector('.note-delete-btn');
@@ -832,13 +1012,63 @@
         delNoteBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteNote(nodeId, safeIndex); });
       }
 
-      // ── Wire Delete reply buttons ──────────────────────────────
-      body.querySelectorAll('.reply-delete-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          deleteReply(nodeId, safeIndex, parseInt(btn.dataset.ri));
-        });
-      });
+	  // ── Wire Delete reply buttons ──────────────────────────────
+	  body.querySelectorAll('.reply-delete-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      deleteReply(nodeId, safeIndex, btn.dataset.replyId);
+	    });
+	  });
+
+	  // ── Wire Reply-to-reply buttons ────────────────────────────
+	  body.querySelectorAll('.reply-to-reply-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+
+	      var replyId = btn.dataset.replyId;
+	      var area = document.getElementById('reply_area_' + replyId);
+
+	      if (area) {
+	        area.style.display = area.style.display === 'none' ? 'block' : 'none';
+	        if (area.style.display === 'block') {
+	          area.querySelector('.reply-textarea').focus();
+	        }
+	      }
+	    });
+	  });
+
+	  // ── Wire nested reply Send buttons ─────────────────────────
+	  body.querySelectorAll('.nested-reply-send-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+
+	      var replyId = btn.dataset.replyId;
+	      var area = document.getElementById('reply_area_' + replyId);
+	      if (!area) return;
+
+	      var txt = area.querySelector('.reply-textarea').value.trim();
+	      if (!txt) return;
+
+	      area.querySelector('.reply-textarea').value = '';
+	      area.style.display = 'none';
+
+	      submitReply(nodeId, safeIndex, replyId, txt);
+	    });
+	  });
+
+	  // ── Wire nested reply Cancel buttons ───────────────────────
+	  body.querySelectorAll('.nested-reply-cancel-btn').forEach(function(btn) {
+	    btn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+
+	      var replyId = btn.dataset.replyId;
+	      var area = document.getElementById('reply_area_' + replyId);
+	      if (!area) return;
+
+	      area.querySelector('.reply-textarea').value = '';
+	      area.style.display = 'none';
+	    });
+	  });
     }
 
 	function openNotePanel(nodeId) {
@@ -864,7 +1094,7 @@
 	  const header = document.createElement("div");
 	  header.className = "floating-note-header";
 	  header.innerHTML = `
-	    <span>Note: ${escapeHtml(nodeId)}</span>
+	    <span>Note: ${escapeHtml(isGeneralNoteId(nodeId) ? "General Notes" : nodeId)}</span>
 	    <button class="floating-note-close" type="button">&times;</button>
 	  `;
 
@@ -947,6 +1177,11 @@
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
     }
+	
+	function sameUser(a, b) {
+	  return String(a || '').trim().toLowerCase() ===
+	         String(b || '').trim().toLowerCase();
+	}
 
     addNoteMenuItem.addEventListener("click", function(event) {
       event.stopPropagation();
@@ -983,6 +1218,11 @@
       const lineHeight = 16;
       return paddingTop + titleHeight + dividerGap + (lines.length * lineHeight) + paddingBottom;
     }
+	
+	function truncateText(text, maxChars) {
+	  if (!text) return "";
+	  return text.length > maxChars ? text.substring(0, maxChars - 3) + "..." : text;
+	}
 
     function applyEdgeStyle(kind, line) {
       line.removeAttribute('stroke-dasharray');
@@ -1007,22 +1247,24 @@
           line.setAttribute('marker-end', 'url(#arrow-solid)');
           break;
 
-        case 'ASSOCIATES':
-          line.setAttribute('stroke', '#586070');
-          line.setAttribute('marker-end', 'url(#arrow-solid)');
-          break;
-
-        case 'AGGREGATES':
-          line.setAttribute('stroke', '#586070');
-          line.setAttribute('marker-start', 'url(#diamond-hollow)');
-          line.setAttribute('marker-end', 'url(#arrow-solid)');
-          break;
-
-        case 'COMPOSES':
-          line.setAttribute('stroke', '#586070');
-          line.setAttribute('marker-start', 'url(#diamond-solid)');
-          line.setAttribute('marker-end', 'url(#arrow-solid)');
-          break;
+		case 'DIRECTED_ASSOCIATION':
+		  line.setAttribute('stroke', '#586070');
+		  line.setAttribute('marker-end', 'url(#arrow-open)');
+		  break;
+	
+		case 'ASSOCIATES':
+		  line.setAttribute('stroke', '#586070');
+		  break;
+	
+		case 'AGGREGATES':
+		  line.setAttribute('stroke', '#586070');
+		  line.setAttribute('marker-start', 'url(#diamond-hollow)');
+		  break;
+	
+		case 'COMPOSES':
+		  line.setAttribute('stroke', '#586070');
+		  line.setAttribute('marker-start', 'url(#diamond-solid)');
+		  break;
 
         default:
           line.setAttribute('stroke', '#586070');
@@ -1036,6 +1278,7 @@
         case 'EXTENDS': return 'extends';
         case 'IMPLEMENTS': return 'implements';
         case 'USES': return 'uses';
+		case 'DIRECTED_ASSOCIATION': return 'directed';
         case 'ASSOCIATES': return 'associates';
         case 'AGGREGATES': return 'aggregates';
         case 'COMPOSES': return 'composes';
@@ -1088,25 +1331,29 @@
         }
 
         const nodes = {};
-        const width = 280;
+		const defaultWidth = 280;
+		const expandedWidth = 280;
         const cols = 4;
+		
+		const expandedNodes = window.expandedNodes || {};
+		window.expandedNodes = expandedNodes;
 
         graph.nodes.forEach(function(n, i) {
           const memberLines = n.members ? n.members.split('\n').filter(x => x.trim().length > 0) : [];
-          const x = 100 + (i % cols) * 350;
+		  const x = 100 + (i % cols) * 620;
           const y = 60 + Math.floor(i / cols) * 170;
           const height = estimateNodeHeight(memberLines);
 
           nodes[n.id] = {
             x: x,
             y: y,
-            width: width,
+			width: expandedNodes[n.id] ? expandedWidth : defaultWidth,
             height: height,
             data: n,
             memberLines: memberLines
           };
 
-          nodeAnchors[n.id] = { x: x + width + 8, y: y + 12 };
+		  nodeAnchors[n.id] = { x: x + nodes[n.id].width + 8, y: y + 12 };
         });
 
         graph.edges.forEach(function(e) {
@@ -1161,7 +1408,7 @@
           title.setAttribute('class', 'node-title');
           title.setAttribute('x', 14);
           title.setAttribute('y', 27);
-          title.textContent = n.data.label;
+		  title.textContent = expandedNodes[id] ? n.data.label : truncateText(n.data.label, 26);
           g.appendChild(title);
 
           const divider = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1181,7 +1428,7 @@
             const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
             tspan.setAttribute('x', 14);
             tspan.setAttribute('dy', idx === 0 ? 0 : 16);
-            tspan.textContent = lineText;
+			tspan.textContent = expandedNodes[id] ? truncateText(lineText, 72) : truncateText(lineText, 42);
             text.appendChild(tspan);
           });
 
@@ -1204,6 +1451,15 @@
             badgeText.setAttribute('x', n.width - 16);
             badgeText.setAttribute('y', 16);
             badgeText.textContent = String(activeNotes.length);
+
+            badgeText.addEventListener('click', (function(capturedId) 
+            {
+              return function(event) 
+              {
+                event.stopPropagation();
+                openNotePanel(capturedId);
+              };
+            })(id));
             g.appendChild(badgeText);
           }
 
@@ -1252,38 +1508,67 @@
 
         updateEdges();
 
-        let dragged = null;
-        let offsetX = 0;
-        let offsetY = 0;
+		let dragged = null;
+		let draggedGeneralNoteId = null;
+		let offsetX = 0;
+		let offsetY = 0;
 
-        viewport.querySelectorAll('.node').forEach(function(nodeEl) {
-          nodeEl.addEventListener('mousedown', function(e) {
-            if (e.button !== 0) return;
-            if (e.target.classList.contains('note-badge')) return;
-            const id = nodeEl.getAttribute('data-id');
-            dragged = nodes[id];
-            offsetX = e.clientX - dragged.x;
-            offsetY = e.clientY - dragged.y;
-            e.stopPropagation();
-          });
-          nodeEl.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const id = nodeEl.getAttribute('data-id');
-            showContextMenu(e.clientX, e.clientY, id);
-          });
-        });
+		viewport.querySelectorAll('.node').forEach(function(nodeEl) 
+    {
+		nodeEl.addEventListener('dblclick', function(e) {
+		  e.stopPropagation();
 
-        document.addEventListener('mousemove', function(e) {
-          if (!dragged) return;
-          dragged.x = e.clientX - offsetX;
-          dragged.y = e.clientY - offsetY;
-          updateEdges();
-        });
+		  if (e.target.classList.contains('note-badge') ||
+		      e.target.classList.contains('note-badge-text')) {
+		    return;
+		  }
 
-        document.addEventListener('mouseup', function() {
-          dragged = null;
-        });
+		  const id = nodeEl.getAttribute('data-id');
+		  expandedNodes[id] = !expandedNodes[id];
+		  renderGraph(lastRenderedGraph);
+		});
+
+		  nodeEl.addEventListener('mousedown', function(e) {
+		    if (e.button !== 0) return;
+			if (e.target.classList.contains('note-badge') ||
+			    e.target.classList.contains('note-badge-text')) return;
+		    const id = nodeEl.getAttribute('data-id');
+			dragged = nodes[id];
+			draggedGeneralNoteId = null;
+
+			var svgPoint = screenToSvgPoint(e.clientX, e.clientY);
+			offsetX = svgPoint.x - dragged.x;
+			offsetY = svgPoint.y - dragged.y;
+
+			e.stopPropagation();
+		  });
+
+		  nodeEl.addEventListener('contextmenu', function(e) {
+		    e.preventDefault();
+		    e.stopPropagation();
+		    const id = nodeEl.getAttribute('data-id');
+		    showContextMenu(e.clientX, e.clientY, id);
+		  });
+		});
+
+		document.addEventListener('mousemove', function(e) {
+		  if (!dragged) return;
+
+		  var svgPoint = screenToSvgPoint(e.clientX, e.clientY);
+		  dragged.x = svgPoint.x - offsetX;
+		  dragged.y = svgPoint.y - offsetY;
+
+		  updateEdges();
+		});
+
+		document.addEventListener('mouseup', function() {
+		  if (dragged && draggedGeneralNoteId) {
+		    persistGeneralNotePosition(draggedGeneralNoteId, dragged.x, dragged.y);
+		  }
+
+		  dragged = null;
+		  draggedGeneralNoteId = null;
+		});
 
         let pan = { x: 0, y: 0 };
         let isPanning = false;
@@ -1322,18 +1607,35 @@
 
         Object.keys(notesByNode).forEach(function(ghostId) {
           if (currentIds[ghostId]) return; // still in diagram
-          var activeGhostNotes = notesByNode[ghostId].filter(function(n) { return !n.isDeleted; });
-          if (activeGhostNotes.length === 0) return;
+		  var activeGhostNotes = notesByNode[ghostId].filter(function(n) { return !n.isDeleted; });
+		  if (activeGhostNotes.length === 0) return;
 
-          var gw = 280, gh = 80;
+		  var firstNote = activeGhostNotes[activeGhostNotes.length - 1];
+
+		  for (var i = activeGhostNotes.length - 1; i >= 0; i--) {
+		    if (activeGhostNotes[i].x != null && activeGhostNotes[i].y != null) {
+		      firstNote = activeGhostNotes[i];
+		      break;
+		    }
+		  }
+
+		  var gw = 280, gh = 80;
+		  var finalX = ghostX;
+		  var finalY = ghostY;
+
+		  if (isGeneralNoteId(ghostId) && firstNote) {
+			finalX = firstNote.x != null ? firstNote.x : ghostX;
+			finalY = firstNote.y != null ? firstNote.y : ghostY;
+		  }
+		  
           var gg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           gg.setAttribute('class', 'node note-ghosted');
           gg.setAttribute('data-id', ghostId);
-          gg.setAttribute('transform', 'translate(' + ghostX + ',' + ghostY + ')');
+		  gg.setAttribute('transform', 'translate(' + finalX + ',' + finalY + ')');
           gg.style.opacity = '0.5';
 
-          nodes[ghostId] = { x: ghostX, y: ghostY, width: gw, height: gh };
-          nodeAnchors[ghostId] = { x: ghostX + gw + 8, y: ghostY + 12 };
+		  nodes[ghostId] = { x: finalX, y: finalY, width: gw, height: gh };
+		  nodeAnchors[ghostId] = { x: finalX + gw + 8, y: finalY + 12 };
 
           var gbody = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
           gbody.setAttribute('class', 'node-body');
@@ -1369,11 +1671,59 @@
           gbadgeTxt.setAttribute('x', gw - 16);
           gbadgeTxt.setAttribute('y', 16);
           gbadgeTxt.textContent = String(activeGhostNotes.length);
+
+		  if (isGeneralNoteId(ghostId))
+          {
+			gtitle.textContent = "General Note";
+			gtitle.style.fill = "#1f2937";
+			gtitle.style.opacity = "1";
+
+			gbody.style.strokeDasharray = "0";
+			gbody.style.fill = "#ffffff";
+			gbody.style.stroke = "#4aa3df";
+
+			gheader.style.fill = "#bdeaff";
+			gheader.style.stroke = "#4aa3df";
+			gheader.style.opacity = "1";
+
+			gg.style.opacity = "1";
+          }
+		  
+		  gbadgeTxt.addEventListener('click', (function(id) {
+		    return function(ev) {
+		      ev.stopPropagation();
+		      openNotePanel(id);
+		    };
+		  })(ghostId));
+		  
           gg.appendChild(gbadgeTxt);
 
-          viewport.appendChild(gg);
+		  viewport.appendChild(gg);
 
-          ghostX += 360;
+		  if (isGeneralNoteId(ghostId)) {
+		    gg.addEventListener('mousedown', function(e) {
+		      if (e.button !== 0) return;
+
+		      if (e.target.classList.contains('note-badge') ||
+		          e.target.classList.contains('note-badge-text')) {
+		        return;
+		      }
+
+			  var id = this.getAttribute('data-id');
+			  dragged = nodes[id];
+			  draggedGeneralNoteId = id;
+
+		      var svgPoint = screenToSvgPoint(e.clientX, e.clientY);
+		      offsetX = svgPoint.x - dragged.x;
+		      offsetY = svgPoint.y - dragged.y;
+
+		      e.preventDefault();
+		      e.stopPropagation();
+		    });
+		  }
+
+		  ghostX += 360;
+		  
           if (ghostX > 1500) { ghostX = 100; ghostY += 130; }
         });
 
@@ -1411,7 +1761,29 @@
         var vb = svg.viewBox.baseVal;
         var w = vb.width || svg.getBoundingClientRect().width || 1200;
         var h = vb.height || svg.getBoundingClientRect().height || 800;
-        var data = new XMLSerializer().serializeToString(svg);
+		var clone = svg.cloneNode(true);
+
+		var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+		style.textContent = `
+		  .node-shadow { fill: rgba(0,0,0,0.10); }
+		  .node-body { fill: #fff9cc; stroke: #6c63ff; stroke-width: 2; }
+		  .node-header { fill: #ede4ff; stroke: #6c63ff; stroke-width: 2; }
+		  .node-title { font-size: 15px; font-weight: 700; fill: #2f2f44; }
+		  .node-divider { stroke: #cfc5ff; stroke-width: 1.5; }
+		  .node-text { font-size: 12px; fill: #4c5670; }
+		  .edge { stroke-width: 2.4; fill: none; }
+		  .edge-label { font-size: 11px; fill: #374151; font-weight: 700; }
+		  .note-badge { fill: #6c63ff; stroke: #ffffff; stroke-width: 2; }
+		  .note-badge-text { fill: white; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+		`;
+
+		clone.insertBefore(style, clone.firstChild);
+
+		var data = new XMLSerializer().serializeToString(clone);
+
+		if (!data.includes('xmlns="http://www.w3.org/2000/svg"')) {
+		  data = data.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+		}
         var canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
@@ -1444,6 +1816,61 @@
         console.error('REJD export error: ' + e);
       }
     }
+
+    // The following code block is lifted directly from source: https://www.w3schools.com/howto/howto_js_draggable.asp
+    dragElement(document.getElementById("noteDialog"));
+
+    function dragElement(elmnt) {
+      var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      if (document.getElementById(elmnt.id)) {
+        // if present, the header is where you move the DIV from:
+        document.getElementById(elmnt.id).onmousedown = dragMouseDown;
+      } else {
+        // otherwise, move the DIV from anywhere inside the DIV:
+        elmnt.onmousedown = dragMouseDown;
+      }
+
+      function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // get the mouse cursor position at startup:
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        // call a function whenever the cursor moves:
+        document.onmousemove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // calculate the new cursor position:
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        // set the element's new position:
+        elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+        elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+      }
+
+      function closeDragElement() {
+        // stop moving when mouse button is released:
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+
+    // General notes
+    const canvas = document.getElementById('canvas');
+
+    canvas.addEventListener('contextmenu', function(e) {
+		    e.preventDefault();
+		    e.stopPropagation();
+			showContextMenu(e.clientX, e.clientY, createGeneralNoteId());
+		  });
+    
+
   </script>
 </body>
 </html>

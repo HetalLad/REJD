@@ -47,6 +47,7 @@ public class ClassDiagramView extends BorderPane {
     private final WebView  webView      = new WebView();
     private double         zoomLevel    = 1.0;
     private final Button   exportButton = new Button("Export");
+    private String currentDiagramTitle = "Class Diagram";
 
     /** In-memory mirror of the persisted notes list. */
     private final List<NoteModel> notes = new ArrayList<>();
@@ -145,6 +146,10 @@ public class ClassDiagramView extends BorderPane {
 
     public Button getExportButton() {
         return exportButton;
+    }
+    
+    public void setDiagramTitle(String title) {
+        this.currentDiagramTitle = title != null ? title : "Class Diagram";
     }
 
     /** Called by the Eclipse plugin to point this view at a specific project. */
@@ -296,12 +301,19 @@ public class ClassDiagramView extends BorderPane {
      */
     public void renderSequenceDiagram(Path pngPath, String bgCssColor) {
         String bg = bgCssColor != null ? bgCssColor : (eclipseBgColor != null ? eclipseBgColor : "#ffffff");
+
+        setDiagramTitle("Sequence Diagram");
+
         webView.getEngine().loadContent(
-            "<!DOCTYPE html><html><body style='margin:0;padding:8px;background:" + bg + "'>"
+            "<!DOCTYPE html><html><body style='margin:0;padding:8px;background:" + bg + ";font-family:Arial;'>"
+            + "<div style='font-size:14px;font-weight:bold;margin-bottom:8px;'>"
+            + escapeHtml(currentDiagramTitle)
+            + "</div>"
             + "<img src='" + pngPath.toUri().toString()
             + "' style='max-width:100%;display:block;margin:auto'>"
             + "</body></html>"
         );
+
         exportButton.setDisable(false);
     }
 
@@ -420,17 +432,48 @@ public class ClassDiagramView extends BorderPane {
         }
 
         /** Called when a reply is submitted in JS. */
-        public void saveReply(String noteId, String replyJson) {
+        public void saveReply(String noteId, String parentReplyId, String replyJson) {
             ReplyModel reply = gson.fromJson(replyJson, ReplyModel.class);
             if (reply == null) return;
+
             for (NoteModel note : notes) {
                 if (noteId.equals(note.id)) {
-                    note.replies.removeIf(r -> reply.id != null && reply.id.equals(r.id));
-                    note.replies.add(reply);
+                    if (parentReplyId == null || parentReplyId.isBlank()) {
+                        note.replies.removeIf(r -> reply.id != null && reply.id.equals(r.id));
+                        note.replies.add(reply);
+                    } else {
+                        ReplyModel parent = findReplyById(note.replies, parentReplyId);
+                        if (parent == null) return;
+
+                        if (parent.replies == null) {
+                            parent.replies = new ArrayList<>();
+                        }
+
+                        parent.replies.removeIf(r -> reply.id != null && reply.id.equals(r.id));
+                        parent.replies.add(reply);
+                    }
+
                     NoteRepository.save(projectRoot, notes);
                     return;
                 }
             }
+        }
+        
+        private ReplyModel findReplyById(List<ReplyModel> replies, String replyId) {
+            if (replies == null || replyId == null || replyId.isBlank()) return null;
+
+            for (ReplyModel reply : replies) {
+                if (replyId.equals(reply.id)) {
+                    return reply;
+                }
+
+                ReplyModel nested = findReplyById(reply.replies, replyId);
+                if (nested != null) {
+                    return nested;
+                }
+            }
+
+            return null;
         }
 
         /** Soft-deletes a note (sets isDeleted = true). */
@@ -448,13 +491,12 @@ public class ClassDiagramView extends BorderPane {
         public void deleteReply(String noteId, String replyId) {
             for (NoteModel note : notes) {
                 if (noteId.equals(note.id)) {
-                    for (ReplyModel reply : note.replies) {
-                        if (replyId.equals(reply.id)) {
-                            reply.isDeleted = true;
-                            NoteRepository.save(projectRoot, notes);
-                            return;
-                        }
+                    ReplyModel reply = findReplyById(note.replies, replyId);
+                    if (reply != null) {
+                        reply.isDeleted = true;
+                        NoteRepository.save(projectRoot, notes);
                     }
+                    return;
                 }
             }
         }
