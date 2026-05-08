@@ -1,5 +1,13 @@
+/*
+File name: PositionModel.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag 
+Description: The PositionModel class is intialized here
+*/
+
+// package info
 package gwu.rejd.notes;
 
+// import statements
 import java.util.ArrayList;
 import java.util.List;
 
