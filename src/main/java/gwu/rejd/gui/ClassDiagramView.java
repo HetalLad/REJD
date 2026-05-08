@@ -281,6 +281,9 @@ public class ClassDiagramView extends BorderPane {
             "<html><body style='font-family: Arial; padding: 16px;'>No diagram loaded.</body></html>"
         );
         zoomLevel = 1.0;
+        pageLoaded = false;
+        pageListenerRegistered = false;
+        pendingGraphJson = null;
         exportButton.setDisable(true);
     }
 
