@@ -11,6 +11,9 @@ package gwu.rejd.notes;
 import java.util.ArrayList;
 import java.util.List;
 
+/*
+Class PositionModel describes the PositionModel object.
+*/
 public class PositionModel {
     public String componentId;
     public double x;
