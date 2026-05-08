@@ -1037,7 +1037,7 @@
 
       var replyInputId = 'ria_' + nodeId.replace(/[^a-z0-9]/gi, '_') + '_' + safeIndex;
       var actionsHtml =
-        (!note.isDeleted ? '<button class="note-reply-btn" type="button">Reply</button>' : '') +
+	    (!note.isDeleted ? '<button class="note-reply-btn main-note-reply-btn" type="button">Reply</button>' : '') +
         (canDelNote ? '<button class="note-delete-btn" type="button">Delete note</button>' : '') +
         '<div class="reply-input-area" id="' + replyInputId + '" style="display:none;">' +
           '<textarea class="reply-textarea" placeholder="Write a reply..."></textarea>' +
@@ -1055,18 +1055,18 @@
       prevBtn.addEventListener('click', function(e) { e.stopPropagation(); renderNotePanelContent(panel, nodeId, safeIndex - 1); });
       nextBtn.addEventListener('click', function(e) { e.stopPropagation(); renderNotePanelContent(panel, nodeId, safeIndex + 1); });
 
-      // ── Wire Reply button ──────────────────────────────────────
-      var replyBtn = body.querySelector('.note-reply-btn');
-      if (replyBtn) {
-        replyBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          var area = document.getElementById(replyInputId);
-          if (area) {
-            area.style.display = area.style.display === 'none' ? 'block' : 'none';
-            if (area.style.display === 'block') area.querySelector('.reply-textarea').focus();
-          }
-        });
-      }
+	  // ── Wire Reply button ──────────────────────────────────────
+	  var replyBtn = body.querySelector('.main-note-reply-btn');
+	  if (replyBtn) {
+	    replyBtn.addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      var area = document.getElementById(replyInputId);
+	      if (area) {
+	        area.style.display = area.style.display === 'none' ? 'block' : 'none';
+	        if (area.style.display === 'block') area.querySelector('.reply-textarea').focus();
+	      }
+	    });
+	  }
 
 	  // ── Wire direct reply Send / Cancel ─────────────────────────
 	  var replyArea = document.getElementById(replyInputId);
@@ -1106,7 +1106,8 @@
 	  // ── Wire Reply-to-reply buttons ────────────────────────────
 	  body.querySelectorAll('.reply-to-reply-btn').forEach(function(btn) {
 	    btn.addEventListener('click', function(e) {
-	      e.stopPropagation();
+	      e.preventDefault();
+	      e.stopImmediatePropagation();
 
 	      var replyId = btn.dataset.replyId;
 	      var area = document.getElementById('reply_area_' + replyId);
