@@ -115,6 +115,13 @@ public class RejdApp extends Application {
         addFilesBtn.setMaxWidth(Double.MAX_VALUE);
         clearBtn.setMaxWidth(Double.MAX_VALUE);
 
+        // Tooltips clarify the non-recursive vs. additive behaviour
+        openFolderBtn.setTooltip(new Tooltip(
+            "Load .java files directly in the chosen folder (non-recursive).\n" +
+            "Subfolders are NOT included — select each package folder individually."));
+        addFilesBtn.setTooltip(new Tooltip(
+            "Pick individual .java files and add them to the current list."));
+
         openFolderBtn.setOnAction(e -> openFolder());
         addFilesBtn.setOnAction(e -> addFiles());
         clearBtn.setOnAction(e -> {
@@ -184,12 +191,14 @@ public class RejdApp extends Application {
 
     private void openFolder() {
         DirectoryChooser dc = new DirectoryChooser();
-        dc.setTitle("Open Java Project Folder");
+        dc.setTitle("Open Java Package Folder (non-recursive)");
         File dir = dc.showDialog(primaryStage);
         if (dir == null) return;
 
         List<File> javaFiles;
-        try (Stream<Path> stream = Files.walk(dir.toPath())) {
+        try (Stream<Path> stream = Files.list(dir.toPath())) {
+            // Files.list() — non-recursive, only direct children of the chosen folder.
+            // To load a sub-package (e.g. model/enums), open that subfolder separately.
             javaFiles = stream
                     .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
                     .sorted()
@@ -201,7 +210,8 @@ public class RejdApp extends Application {
         }
 
         if (javaFiles.isEmpty()) {
-            showError("No .java files found in the selected folder.");
+            showError("No .java files found directly in the selected folder.\n" +
+                      "Subfolders are not searched — select the specific package folder.");
             return;
         }
 
