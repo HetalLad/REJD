@@ -1,6 +1,7 @@
 package plugin.ui;
 
 import com.google.gson.Gson;
+
 import gwu.rejd.extractor.MultiFileProjectLoader;
 import gwu.rejd.generator.DiagramRenderer;
 import gwu.rejd.generator.PlantUmlSequenceDiagramGenerator;
@@ -45,6 +46,12 @@ import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import gwu.rejd.notes.PositionModel;
+import gwu.rejd.notes.PositionPreloadCache;
+import gwu.rejd.notes.PositionRepository;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Eclipse ViewPart — package/type tree on the left, class diagram in a native
@@ -99,6 +106,7 @@ public class RejdDiagramView extends ViewPart {
     // ── Notes ─────────────────────────────────────────────────────────────────
     private final Gson gson = new Gson();
     private final List<NoteModel> notes = new ArrayList<>();
+    private final Map<String, PositionModel> positions = new HashMap<>();
     private Path projectRoot = java.nio.file.Paths.get("").toAbsolutePath();
 
     // ── ViewPart lifecycle ────────────────────────────────────────────────────
@@ -294,6 +302,20 @@ public class RejdDiagramView extends ViewPart {
                 return null;
             }
         };
+        new BrowserFunction(browser, "_jbSavePosition") {
+            @Override public Object function(Object[] args) {
+                if (args == null || args.length < 3) return null;
+
+                String nodeId = (String) args[0];
+                double x = ((Number) args[1]).doubleValue();
+                double y = ((Number) args[2]).doubleValue();
+
+                positions.put(nodeId, new PositionModel(nodeId, x, y));
+                PositionRepository.save(projectRoot, positions);
+
+                return null;
+            }
+        };
     }
 
     /**
@@ -313,12 +335,13 @@ public class RejdDiagramView extends ViewPart {
                 // 1. Inject window.javaBridge object (BrowserFunctions are global
                 //    but the page needs the named object to call them via callBridge())
                 browser.execute(
-                    "window.javaBridge = {" +
-                    "  saveNote:    function(j)       { _jbSaveNote(j); }," +
-                    "  saveReply:   function(id,pid,j) { _jbSaveReply(id,pid,j); }," +
-                    "  deleteNote:  function(id)      { _jbDeleteNote(id); }," +
-                    "  deleteReply: function(nid,rid) { _jbDeleteReply(nid,rid); }" +
-                    "};");
+                	    "window.javaBridge = {" +
+                	    "  saveNote: function(j) { _jbSaveNote(j); }," +
+                	    "  saveReply: function(id,pid,j) { _jbSaveReply(id,pid,j); }," +
+                	    "  deleteNote: function(id) { _jbDeleteNote(id); }," +
+                	    "  deleteReply: function(nid,rid) { _jbDeleteReply(nid,rid); }," +
+                	    "  savePosition: function(id,x,y) { _jbSavePosition(id,x,y); }" +
+                	    "};");
 
                 // 2. Set current author for note attribution
                 String user = UserContext.getCurrentUser();
@@ -333,8 +356,9 @@ public class RejdDiagramView extends ViewPart {
                             + escapeJs(eclipseBgColor) + "');");
                 }
 
-                // 4. Load persisted notes (with NotePreloadCache fallback)
+                // 4. Load persisted notes and positions
                 injectNotes();
+                injectPositions();
 
                 // 5. Render any diagram that arrived before the page was ready
                 if (pendingJson != null) {
@@ -397,6 +421,7 @@ public class RejdDiagramView extends ViewPart {
             if (pageLoaded) {
             	executeRender(json);
             	injectNotes();
+            	injectPositions();
             } else {
                 pendingJson = json;
                 if (!expectingClassHtml) loadClassHtml();  // reload after sequence view
@@ -421,6 +446,21 @@ public class RejdDiagramView extends ViewPart {
         if (!notes.isEmpty()) {
             browser.execute("if(typeof loadNotes==='function') loadNotes("
                     + gson.toJson(notes) + ");");
+        }
+    }
+    
+    private void injectPositions() {
+        Map<String, PositionModel> loaded = PositionRepository.load(projectRoot);
+        if (loaded.isEmpty()) {
+            loaded = PositionPreloadCache.get(projectRoot);
+        }
+
+        positions.clear();
+        positions.putAll(loaded);
+
+        if (!positions.isEmpty()) {
+            browser.execute("if(typeof loadPositions==='function') loadPositions("
+                    + gson.toJson(positions) + ");");
         }
     }
 
@@ -489,6 +529,7 @@ public class RejdDiagramView extends ViewPart {
                     if (pageLoaded) {
                     	executeRender(json);
                     	injectNotes();
+                    	injectPositions();
                     } else {
                         pendingJson = json;
                         if (!expectingClassHtml) loadClassHtml();  // reload after sequence view

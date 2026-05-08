@@ -513,10 +513,11 @@
     let activeNodeId = null;
     let noteDialogAnchor = { x: 0, y: 0 };
 
-    const notesByNode = {};
-    const panelPositionsByNode = {};
-    const openPanelsByNode = {};
-    const nodeAnchors = {};
+	const notesByNode = {};
+	const savedPositionsByNode = {};
+	const panelPositionsByNode = {};
+	const openPanelsByNode = {};
+	const nodeAnchors = {};
 
     let lastRenderedGraph = null;
 	
@@ -886,6 +887,23 @@
 	      renderNotePanelContent(panel, nodeId, idx);
 	    }
 	  });
+	}
+	
+	function loadPositions(data) {
+	  Object.keys(savedPositionsByNode).forEach(function(key) {
+	    delete savedPositionsByNode[key];
+	  });
+
+	  if (!data || typeof data !== "object") {
+	    if (lastRenderedGraph) renderGraph(lastRenderedGraph);
+	    return;
+	  }
+
+	  Object.keys(data).forEach(function(id) {
+	    savedPositionsByNode[id] = data[id];
+	  });
+
+	  if (lastRenderedGraph) renderGraph(lastRenderedGraph);
 	}
 
     function hideNotes() {
@@ -1479,11 +1497,14 @@
 		const expandedNodes = window.expandedNodes || {};
 		window.expandedNodes = expandedNodes;
 
-        graph.nodes.forEach(function(n, i) {
-          const memberLines = n.members ? n.members.split('\n').filter(x => x.trim().length > 0) : [];
-		  const x = 100 + (i % cols) * 620;
-          const y = 60 + Math.floor(i / cols) * 170;
-          const height = estimateNodeHeight(memberLines);
+		graph.nodes.forEach(function(n, i) {
+		  const memberLines = n.members ? n.members.split('\n').filter(x => x.trim().length > 0) : [];
+
+		  const savedPosition = savedPositionsByNode[n.id];
+		  const x = savedPosition ? savedPosition.x : 100 + (i % cols) * 620;
+		  const y = savedPosition ? savedPosition.y : 60 + Math.floor(i / cols) * 170;
+
+		  const height = estimateNodeHeight(memberLines);
 
           nodes[n.id] = {
             x: x,
@@ -1738,6 +1759,10 @@
 		  dragged.y = svgPoint.y - offsetY;
 
 		  updateEdges();
+
+		  if (dragged && dragged.data && dragged.data.id) {
+		    callBridge('savePosition', dragged.data.id, dragged.x, dragged.y);
+		  }
 		});
 
 		document.addEventListener('mouseup', function() {
