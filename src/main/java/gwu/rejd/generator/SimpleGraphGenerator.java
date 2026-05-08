@@ -15,62 +15,70 @@ import java.util.stream.Collectors;
 
 public class SimpleGraphGenerator {
 
-    public String generate(ProjectModel projectModel, List<RelationshipModel> relationships) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"nodes\":[");
+	public String generate(ProjectModel projectModel, List<RelationshipModel> relationships) {
+	    StringBuilder sb = new StringBuilder();
+	    sb.append("{\"nodes\":[");
 
-        boolean first = true;
-        Set<String> internal = new HashSet<>();
+	    boolean first = true;
+	    Set<String> internal = new HashSet<>();
 
-        for (TypeModel type : projectModel.getTypesByFqn().values()) {
-            String id = sanitize(type.getSimpleName());
-            internal.add(id);
+	    for (TypeModel type : projectModel.getTypesByFqn().values()) {
+	        String id = sanitize(type.getSimpleName());
+	        internal.add(id);
 
-            if (!first) sb.append(",");
-            first = false;
+	        if (!first) sb.append(",");
+	        first = false;
 
-            sb.append("{")
-              .append("\"id\":\"").append(escape(id)).append("\",")
-              .append("\"label\":\"").append(escape(type.getSimpleName())).append("\",")
-              .append("\"members\":\"").append(escape(buildMembers(type))).append("\"")
-              .append("}");
-        }
+	        sb.append("{")
+	          .append("\"id\":\"").append(escape(id)).append("\",")
+	          .append("\"label\":\"").append(escape(type.getSimpleName())).append("\",")
+	          .append("\"members\":\"").append(escape(buildMembers(type))).append("\"")
+	          .append("}");
+	    }
 
-        Set<String> externalAdded = new HashSet<>();
-        for (RelationshipModel rel : relationships) {
-            String target = sanitize(simpleName(rel.targetName()));
-            if (!internal.contains(target) && externalAdded.add(target)) {
-                if (!first) sb.append(",");
-                first = false;
+	    Set<String> externalAdded = new HashSet<>();
+	    for (RelationshipModel rel : relationships) {
+	        String target = sanitize(simpleName(rel.targetName()));
+	        if (!internal.contains(target) && externalAdded.add(target)) {
+	            if (!first) sb.append(",");
+	            first = false;
 
-                sb.append("{")
-                  .append("\"id\":\"").append(escape(target)).append("\",")
-                  .append("\"label\":\"").append(escape(simpleName(rel.targetName()))).append("\",")
-                  .append("\"members\":\"\"")
-                  .append("}");
-            }
-        }
+	            sb.append("{")
+	              .append("\"id\":\"").append(escape(target)).append("\",")
+	              .append("\"label\":\"").append(escape(simpleName(rel.targetName()))).append("\",")
+	              .append("\"members\":\"\"")
+	              .append("}");
+	        }
+	    }
 
-        sb.append("],\"edges\":[");
+	    sb.append("],\"edges\":[");
 
-        boolean firstEdge = true;
-        for (RelationshipModel rel : relationships) {
-            String source = sanitize(simpleName(rel.sourceFqn()));
-            String target = sanitize(simpleName(rel.targetName()));
+	    boolean firstEdge = true;
+	    for (RelationshipModel rel : relationships) {
+	        String source = sanitize(simpleName(rel.sourceFqn()));
+	        String target = sanitize(simpleName(rel.targetName()));
 
-            if (!firstEdge) sb.append(",");
-            firstEdge = false;
+	        String edgeId = "edge::"
+	                + sanitize(rel.sourceFqn())
+	                + "::"
+	                + sanitize(rel.targetName())
+	                + "::"
+	                + rel.kind().name();
 
-            sb.append("{")
-              .append("\"source\":\"").append(escape(source)).append("\",")
-              .append("\"target\":\"").append(escape(target)).append("\",")
-              .append("\"kind\":\"").append(rel.kind().name()).append("\"")
-              .append("}");
-        }
+	        if (!firstEdge) sb.append(",");
+	        firstEdge = false;
 
-        sb.append("]}");
-        return sb.toString();
-    }
+	        sb.append("{")
+	          .append("\"id\":\"").append(escape(edgeId)).append("\",")
+	          .append("\"source\":\"").append(escape(source)).append("\",")
+	          .append("\"target\":\"").append(escape(target)).append("\",")
+	          .append("\"kind\":\"").append(rel.kind().name()).append("\"")
+	          .append("}");
+	    }
+
+	    sb.append("]}");
+	    return sb.toString();
+	}
 
     private String buildMembers(TypeModel type) {
         StringBuilder sb = new StringBuilder();

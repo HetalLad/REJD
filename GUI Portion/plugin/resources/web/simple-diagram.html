@@ -291,6 +291,30 @@
       text-anchor: middle;
       dominant-baseline: central;
     }
+	
+	.association-note-badge {
+	  fill: #ffd6dc;
+	  stroke: #d7263d;
+	  stroke-width: 1.5;
+	  cursor: pointer;
+	}
+
+	.association-note-badge-text {
+	  fill: #d7263d;
+	  font-size: 11px;
+	  font-weight: 700;
+	  pointer-events: auto;
+	  cursor: pointer;
+	  text-anchor: middle;
+	  dominant-baseline: central;
+	}
+
+	.edge-hitbox {
+	  stroke: transparent;
+	  stroke-width: 16;
+	  fill: none;
+	  cursor: context-menu;
+	}
 
 	.floating-note-panel {
 	  position: absolute;
@@ -470,6 +494,16 @@
 	function isGeneralNoteId(id) {
 	  return id === GENERAL_NOTE_ID || String(id || '').startsWith(GENERAL_NOTE_ID + "::");
 	}
+	
+	function isEdgeNoteId(id) {
+	  return String(id || '').startsWith('edge::');
+	}
+
+	function displayNameForComponent(id) {
+	  if (isGeneralNoteId(id)) return 'General Notes';
+	  if (isEdgeNoteId(id)) return 'Association Note';
+	  return id;
+	}
 
     const customMenu = document.getElementById('contextMenu');
     const addNoteMenuItem = document.getElementById('addNoteMenuItem');
@@ -563,7 +597,7 @@
 
       hideContextMenu();
 
-      noteDialogMeta.textContent = "Component: " + activeNodeId + " | Author: " + currentAuthor;
+	  noteDialogMeta.textContent = "Component: " + displayNameForComponent(activeNodeId) + " | Author: " + currentAuthor;
       noteInput.value = "";
 
 	  const anchor = isGeneralNoteId(activeNodeId)
@@ -784,12 +818,17 @@
 
     // Phase 5: called by Java on diagram open with the persisted notes array
 	function loadNotes(data) {
-		if (!data || !Array.isArray(data)) {
-		    if (lastRenderedGraph) {
-		        renderGraph(lastRenderedGraph);
-		    }
-		    return;
-		}
+	  // Always refresh the JS note cache from Java persistence.
+	  Object.keys(notesByNode).forEach(function(key) {
+	    delete notesByNode[key];
+	  });
+
+	  if (!data || !Array.isArray(data)) {
+	    if (lastRenderedGraph) {
+	      renderGraph(lastRenderedGraph);
+	    }
+	    return;
+	  }
 
 	  data.forEach(function(note) {
 	    if (!note || !note.componentId) return;
@@ -798,18 +837,9 @@
 	      notesByNode[note.componentId] = [];
 	    }
 
-	    var exists = notesByNode[note.componentId].some(function(n) {
-	      return n.id === note.id;
-	    });
-
-	    if (!exists) {
-	      notesByNode[note.componentId].push(note);
-	    }
+	    notesByNode[note.componentId].push(note);
 	  });
 
-	  // IMPORTANT:
-	  // If notes are loaded after the diagram is already rendered,
-	  // force a redraw so note badges appear immediately.
 	  if (lastRenderedGraph) {
 	    renderGraph(lastRenderedGraph);
 	  }
@@ -1094,7 +1124,7 @@
 	  const header = document.createElement("div");
 	  header.className = "floating-note-header";
 	  header.innerHTML = `
-	    <span>Note: ${escapeHtml(isGeneralNoteId(nodeId) ? "General Notes" : nodeId)}</span>
+	    <span>Note: ${escapeHtml(displayNameForComponent(nodeId))}</span>
 	    <button class="floating-note-close" type="button">&times;</button>
 	  `;
 
@@ -1312,6 +1342,69 @@
         y: cy + dy * scale
       };
     }
+	
+	function renderAssociationNoteBadges(nodes) {
+	  const viewport = document.getElementById('viewport');
+
+	  // remove old association badges before redrawing
+	  viewport.querySelectorAll('.association-note-badge-group').forEach(function(el) {
+	    el.remove();
+	  });
+
+	  Object.keys(notesByNode).forEach(function(edgeId) {
+	    if (!isEdgeNoteId(edgeId)) return;
+
+	    var activeNotes = notesByNode[edgeId].filter(function(n) {
+	      return !n.isDeleted;
+	    });
+
+	    if (activeNotes.length === 0) return;
+
+	    var edgeEl = Array.from(viewport.querySelectorAll('.edge-line')).find(function(el) {
+	      return el.getAttribute('data-id') === edgeId;
+	    });
+	    if (!edgeEl) return;
+
+	    var x1 = parseFloat(edgeEl.getAttribute('x1'));
+	    var y1 = parseFloat(edgeEl.getAttribute('y1'));
+	    var x2 = parseFloat(edgeEl.getAttribute('x2'));
+	    var y2 = parseFloat(edgeEl.getAttribute('y2'));
+
+	    var midX = (x1 + x2) / 2;
+	    var midY = (y1 + y2) / 2;
+
+	    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+	    g.setAttribute('class', 'association-note-badge-group');
+	    g.setAttribute('data-id', edgeId);
+
+	    var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+	    circle.setAttribute('class', 'association-note-badge');
+	    circle.setAttribute('cx', midX + 10);
+	    circle.setAttribute('cy', midY - 10);
+	    circle.setAttribute('r', 12);
+
+	    var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+	    text.setAttribute('class', 'association-note-badge-text');
+	    text.setAttribute('x', midX + 10);
+	    text.setAttribute('y', midY - 10);
+	    text.textContent = String(activeNotes.length);
+
+	    g.appendChild(circle);
+	    g.appendChild(text);
+
+	    g.addEventListener('click', function(e) {
+	      e.stopPropagation();
+	      openNotePanel(edgeId);
+	    });
+
+	    viewport.appendChild(g);
+
+	    nodeAnchors[edgeId] = {
+	      x: midX + 24,
+	      y: midY - 10
+	    };
+	  });
+	}
 
     function renderGraph(graph) {
       try {
@@ -1359,19 +1452,28 @@
         graph.edges.forEach(function(e) {
           if (!nodes[e.source] || !nodes[e.target]) return;
 
-          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          line.setAttribute('class', 'edge');
-          line.setAttribute('data-source', e.source);
-          line.setAttribute('data-target', e.target);
-          line.setAttribute('data-kind', e.kind);
+		  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+		  line.setAttribute('class', 'edge edge-line');
+		  line.setAttribute('data-id', e.id);
+		  line.setAttribute('data-source', e.source);
+		  line.setAttribute('data-target', e.target);
+		  line.setAttribute('data-kind', e.kind);
 
-          applyEdgeStyle(e.kind, line);
+		  applyEdgeStyle(e.kind, line);
 
-          viewport.appendChild(line);
+		  const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+		  hit.setAttribute('class', 'edge-hitbox');
+		  hit.setAttribute('data-id', e.id);
+		  hit.setAttribute('data-source', e.source);
+		  hit.setAttribute('data-target', e.target);
+		  hit.setAttribute('data-kind', e.kind);
+
+		  viewport.appendChild(hit);
+		  viewport.appendChild(line);
 
           const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           label.setAttribute('class', 'edge-label');
-          label.setAttribute('data-edge-label', e.source + '->' + e.target);
+		  label.setAttribute('data-edge-label', e.id);
           label.textContent = prettyKindLabel(e.kind);
           viewport.appendChild(label);
         });
@@ -1467,7 +1569,7 @@
         });
 
         function updateEdges() {
-          const edgeEls = viewport.querySelectorAll('.edge');
+		  const edgeEls = viewport.querySelectorAll('.edge-line, .edge-hitbox');
           edgeEls.forEach(function(edge) {
             const s = nodes[edge.getAttribute('data-source')];
             const t = nodes[edge.getAttribute('data-target')];
@@ -1489,7 +1591,7 @@
             edge.setAttribute('x2', targetPoint.x);
             edge.setAttribute('y2', targetPoint.y);
 
-            const label = viewport.querySelector('[data-edge-label="' + edge.getAttribute('data-source') + '->' + edge.getAttribute('data-target') + '"]');
+			const label = viewport.querySelector('[data-edge-label="' + edge.getAttribute('data-id') + '"]');
             if (label) {
               const midX = (sourcePoint.x + targetPoint.x) / 2;
               const midY = (sourcePoint.y + targetPoint.y) / 2;
@@ -1504,6 +1606,8 @@
             nodeEl.setAttribute('transform', 'translate(' + n.x + ',' + n.y + ')');
             nodeAnchors[id] = { x: n.x + n.width + 8, y: n.y + 12 };
           });
+		  
+		  renderAssociationNoteBadges(nodes);
         }
 
         updateEdges();
@@ -1548,6 +1652,16 @@
 		    e.stopPropagation();
 		    const id = nodeEl.getAttribute('data-id');
 		    showContextMenu(e.clientX, e.clientY, id);
+		  });
+		});
+		
+		viewport.querySelectorAll('.edge-line, .edge-hitbox').forEach(function(edgeEl) {
+		  edgeEl.addEventListener('contextmenu', function(e) {
+		    e.preventDefault();
+		    e.stopPropagation();
+
+		    const edgeId = edgeEl.getAttribute('data-id');
+		    showContextMenu(e.clientX, e.clientY, edgeId);
 		  });
 		});
 
@@ -1605,8 +1719,13 @@
         var ghostX = 100;
         var ghostY = 60 + Math.ceil(graph.nodes.length / cols) * 200 + 60;
 
-        Object.keys(notesByNode).forEach(function(ghostId) {
-          if (currentIds[ghostId]) return; // still in diagram
+		Object.keys(notesByNode).forEach(function(ghostId) {
+		  if (currentIds[ghostId]) return; // still in diagram
+
+		  // Do NOT render missing association/edge notes as removed boxes.
+		  // If the edge is outside the current package view, hide it.
+		  if (isEdgeNoteId(ghostId)) return;
+
 		  var activeGhostNotes = notesByNode[ghostId].filter(function(n) { return !n.isDeleted; });
 		  if (activeGhostNotes.length === 0) return;
 
@@ -1754,6 +1873,56 @@
     // Export the SVG diagram to a PNG data URL.
     // Called by the Eclipse plugin via browser.execute("exportToPng(true)").
     // Result is delivered asynchronously to window.javaExportComplete(dataUrl).
+	
+	function drawOpenNotePanelsToCanvas(ctx, canvasW, canvasH) {
+	  var svg = document.getElementById('svg');
+	  var svgRect = svg.getBoundingClientRect();
+	  var scaleX = canvasW / svgRect.width;
+	  var scaleY = canvasH / svgRect.height;
+
+	  document.querySelectorAll('.floating-note-panel').forEach(function(panel) {
+	    if (panel.style.display === 'none') return;
+
+	    var rect = panel.getBoundingClientRect();
+	    var x = (rect.left - svgRect.left) * scaleX;
+	    var y = (rect.top - svgRect.top) * scaleY;
+	    var w = rect.width * scaleX;
+	    var h = rect.height * scaleY;
+
+	    ctx.save();
+
+	    ctx.fillStyle = '#fffef7';
+	    ctx.strokeStyle = '#ddd3aa';
+	    ctx.lineWidth = 1.5;
+		ctx.fillRect(x, y, w, h);
+		ctx.strokeRect(x, y, w, h);
+
+	    ctx.fillStyle = '#f1e19a';
+		ctx.fillRect(x, y, w, 46 * scaleY);
+
+	    ctx.fillStyle = '#4a4330';
+	    ctx.font = 'bold ' + (15 * scaleY) + 'px Arial';
+	    var title = panel.querySelector('.floating-note-header span');
+	    ctx.fillText(title ? title.innerText : 'Note', x + 14 * scaleX, y + 28 * scaleY);
+
+	    ctx.fillStyle = '#374151';
+	    ctx.font = (13 * scaleY) + 'px Arial';
+
+	    var body = panel.querySelector('.floating-note-body');
+	    var text = body ? body.innerText : '';
+	    var lines = text.split('\n').slice(0, 14);
+	    var ty = y + 70 * scaleY;
+
+	    lines.forEach(function(line) {
+	      ctx.fillText(line.substring(0, 45), x + 14 * scaleX, ty);
+	      ty += 18 * scaleY;
+	    });
+
+	    ctx.restore();
+	  });
+	}
+	
+	
     function exportToPng(includeNotes) {
       try {
         if (!includeNotes) hideNotes();
@@ -1775,9 +1944,29 @@
 		  .edge-label { font-size: 11px; fill: #374151; font-weight: 700; }
 		  .note-badge { fill: #6c63ff; stroke: #ffffff; stroke-width: 2; }
 		  .note-badge-text { fill: white; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+		  .association-note-badge { fill: #ffd6dc; stroke: #d7263d; stroke-width: 1.5; }
+		  .association-note-badge-text { fill: #d7263d; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+		  .edge-hitbox { display: none; }
 		`;
 
 		clone.insertBefore(style, clone.firstChild);
+		clone.querySelectorAll('.association-note-badge').forEach(function(el) {
+		  el.setAttribute('fill', '#ffd6dc');
+		  el.setAttribute('stroke', '#d7263d');
+		  el.setAttribute('stroke-width', '1.5');
+		});
+
+		clone.querySelectorAll('.association-note-badge-text').forEach(function(el) {
+		  el.setAttribute('fill', '#d7263d');
+		  el.setAttribute('font-size', '11');
+		  el.setAttribute('font-weight', '700');
+		  el.setAttribute('text-anchor', 'middle');
+		  el.setAttribute('dominant-baseline', 'central');
+		});
+
+		clone.querySelectorAll('.edge-hitbox').forEach(function(el) {
+		  el.remove();
+		});
 
 		var data = new XMLSerializer().serializeToString(clone);
 
@@ -1792,8 +1981,13 @@
         ctx.fillRect(0, 0, w, h);
         var img = new Image();
         img.onload = function() {
-          ctx.drawImage(img, 0, 0, w, h);
-          var dataUrl = canvas.toDataURL('image/png');
+		  ctx.drawImage(img, 0, 0, w, h);
+
+		  if (includeNotes) {
+			drawOpenNotePanelsToCanvas(ctx, w, h);
+		  }
+
+		  var dataUrl = canvas.toDataURL('image/png');
           if (!includeNotes) showNotes();
           if (typeof window.javaExportComplete === 'function') {
             window.javaExportComplete(dataUrl);
@@ -1864,11 +2058,17 @@
     // General notes
     const canvas = document.getElementById('canvas');
 
-    canvas.addEventListener('contextmenu', function(e) {
-		    e.preventDefault();
-		    e.stopPropagation();
-			showContextMenu(e.clientX, e.clientY, createGeneralNoteId());
-		  });
+	canvas.addEventListener('contextmenu', function(e) {
+	  if (e.target.closest('.node') ||
+	      e.target.closest('.edge-line') ||
+	      e.target.closest('.edge-hitbox')) {
+	    return;
+	  }
+
+	  e.preventDefault();
+	  e.stopPropagation();
+	  showContextMenu(e.clientX, e.clientY, createGeneralNoteId());
+	});
     
 
   </script>

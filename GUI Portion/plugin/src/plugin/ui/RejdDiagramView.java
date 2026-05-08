@@ -395,8 +395,8 @@ public class RejdDiagramView extends ViewPart {
         String json = buildGraphJson(model, scope);
         Display.getDefault().asyncExec(() -> {
             if (pageLoaded) {
+            	executeRender(json);
             	injectNotes();
-                executeRender(json);
             } else {
                 pendingJson = json;
                 if (!expectingClassHtml) loadClassHtml();  // reload after sequence view
@@ -487,8 +487,8 @@ public class RejdDiagramView extends ViewPart {
                         treeViewer.expandToLevel(2);
                     }
                     if (pageLoaded) {
+                    	executeRender(json);
                     	injectNotes();
-                        executeRender(json);
                     } else {
                         pendingJson = json;
                         if (!expectingClassHtml) loadClassHtml();  // reload after sequence view
@@ -688,19 +688,34 @@ public class RejdDiagramView extends ViewPart {
      */
     private static Path resolveProjectRoot(Path sourceDir) {
         Path p = sourceDir.toAbsolutePath().normalize();
-        // Strip trailing src/main/java, src/main, src, or just src
-        String[] strip = { "src/main/java", "src" + File.separator + "main" + File.separator + "java",
-                           "src/main",      "src" + File.separator + "main",
-                           "src" };
-        String pathStr = p.toString();
-        for (String suffix : strip) {
-            if (pathStr.endsWith(File.separator + suffix) || pathStr.endsWith("/" + suffix)) {
-                int idx = pathStr.lastIndexOf(File.separator + suffix);
-                if (idx < 0) idx = pathStr.lastIndexOf("/" + suffix);
-                if (idx >= 0) return java.nio.file.Paths.get(pathStr.substring(0, idx));
+
+        // Best case: walk upward until Eclipse/Maven/Gradle project root
+        Path cur = p;
+        while (cur != null) {
+            if (Files.exists(cur.resolve(".project")) ||
+                Files.exists(cur.resolve("pom.xml")) ||
+                Files.exists(cur.resolve("build.gradle")) ||
+                Files.exists(cur.resolve("settings.gradle"))) {
+                return cur;
             }
+            cur = cur.getParent();
         }
-        // Already at root or unrecognised layout — use as-is
+
+        // Fallback: strip anything after /src/main/java
+        String normalized = p.toString().replace("\\", "/");
+        String marker = "/src/main/java";
+        int idx = normalized.indexOf(marker);
+        if (idx >= 0) {
+            return java.nio.file.Paths.get(normalized.substring(0, idx));
+        }
+
+        // Fallback: strip anything after /src
+        marker = "/src";
+        idx = normalized.indexOf(marker);
+        if (idx >= 0) {
+            return java.nio.file.Paths.get(normalized.substring(0, idx));
+        }
+
         return p;
     }
 
@@ -741,8 +756,70 @@ public class RejdDiagramView extends ViewPart {
         String savePath = fd.open();
         if (savePath == null) return;
 
-        pendingExportPath = savePath;
+        pendingExportPath = savePath.toLowerCase().endsWith(".png") ? savePath : savePath + ".png";
         browser.execute("exportToPng(" + includeNotes + ");");
+    }
+    
+    private void exportBrowserSnapshot(String savePath, boolean includeNotes) {
+        if (browser == null || browser.isDisposed()) return;
+
+        if (!savePath.toLowerCase().endsWith(".png")) {
+            savePath = savePath + ".png";
+        }
+
+        final String finalSavePath = savePath;
+
+        try {
+            if (!includeNotes) {
+                browser.execute("if(typeof hideNotes==='function') hideNotes();");
+            }
+
+            Display.getDefault().timerExec(150, () -> {
+                if (browser == null || browser.isDisposed()) return;
+
+                org.eclipse.swt.graphics.Rectangle bounds = browser.getBounds();
+
+                org.eclipse.swt.graphics.Image image =
+                        new org.eclipse.swt.graphics.Image(browser.getDisplay(), bounds.width, bounds.height);
+
+                org.eclipse.swt.graphics.GC gc =
+                        new org.eclipse.swt.graphics.GC(browser);
+
+                try {
+                    gc.copyArea(image, 0, 0);
+
+                    org.eclipse.swt.graphics.ImageLoader loader =
+                            new org.eclipse.swt.graphics.ImageLoader();
+
+                    loader.data = new org.eclipse.swt.graphics.ImageData[] {
+                            image.getImageData()
+                    };
+
+                    loader.save(finalSavePath, SWT.IMAGE_PNG);
+
+                    if (!includeNotes) {
+                        browser.execute("if(typeof showNotes==='function') showNotes();");
+                    }
+
+                    MessageBox done = new MessageBox(getSite().getShell(), SWT.ICON_INFORMATION | SWT.OK);
+                    done.setText("Export Complete");
+                    done.setMessage("Diagram saved to:\n" + finalSavePath);
+                    done.open();
+
+                } catch (Exception ex) {
+                    if (!includeNotes) {
+                        browser.execute("if(typeof showNotes==='function') showNotes();");
+                    }
+                    showError("Export Error", ex.getMessage());
+                } finally {
+                    gc.dispose();
+                    image.dispose();
+                }
+            });
+
+        } catch (Exception ex) {
+            showError("Export Error", ex.getMessage());
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -788,9 +865,7 @@ public class RejdDiagramView extends ViewPart {
     }
 
     private List<Path> collectJavaPaths(Path root) throws IOException {
-        // Files.list() — non-recursive, only .java files directly in the given folder.
-        // To include sub-packages, right-click each sub-package separately.
-        try (Stream<Path> stream = Files.list(root)) {
+        try (Stream<Path> stream = Files.walk(root)) {
             return stream
                 .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
                 .sorted()
