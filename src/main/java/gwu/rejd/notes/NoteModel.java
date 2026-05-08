@@ -10,5 +10,10 @@ public class NoteModel {
     public String timestamp;
     public String text;
     public boolean isDeleted;
+
+    // Used for general canvas notes
+    public Double x;
+    public Double y;
+
     public List<ReplyModel> replies = new ArrayList<>();
 }

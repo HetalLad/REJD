@@ -460,6 +460,16 @@
     const nodeAnchors = {};
 
     let lastRenderedGraph = null;
+	
+	const GENERAL_NOTE_ID = "General Notes";
+	
+	function createGeneralNoteId() {
+	  return GENERAL_NOTE_ID + "::" + generateId();
+	}
+
+	function isGeneralNoteId(id) {
+	  return id === GENERAL_NOTE_ID || String(id || '').startsWith(GENERAL_NOTE_ID + "::");
+	}
 
     const customMenu = document.getElementById('contextMenu');
     const addNoteMenuItem = document.getElementById('addNoteMenuItem');
@@ -556,7 +566,9 @@
       noteDialogMeta.textContent = "Component: " + activeNodeId + " | Author: " + currentAuthor;
       noteInput.value = "";
 
-      const anchor = getDefaultPanelPosition(activeNodeId);
+	  const anchor = isGeneralNoteId(activeNodeId)
+	    ? getClampedPosition(noteDialogAnchor.x + 8, noteDialogAnchor.y + 8)
+	    : getDefaultPanelPosition(activeNodeId);
       noteDialog.style.display = "block";
       noteDialog.style.top = anchor.y + "px";
       noteDialog.style.left = anchor.x + "px";
@@ -567,6 +579,38 @@
     function hideNoteDialog() {
       noteDialog.style.display = "none";
     }
+	
+	function screenToSvgPoint(clientX, clientY) {
+	  const svg = document.getElementById('svg');
+	  const pt = svg.createSVGPoint();
+
+	  pt.x = clientX;
+	  pt.y = clientY;
+
+	  const svgPoint = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+	  const viewport = document.getElementById('viewport');
+	  const panX = viewport.dataset.panX ? parseFloat(viewport.dataset.panX) : 0;
+	  const panY = viewport.dataset.panY ? parseFloat(viewport.dataset.panY) : 0;
+
+	  return {
+	    x: (svgPoint.x - panX) / currentZoom,
+	    y: (svgPoint.y - panY) / currentZoom
+	  };
+	}
+	
+	function getClampedPosition(x, y) {
+	  const canvas = document.getElementById("canvas");
+	  const rect = canvas.getBoundingClientRect();
+
+	  const panelWidth = 280;
+	  const panelHeight = 220;
+
+	  return {
+	    x: Math.max(8, Math.min(x, rect.width - panelWidth - 8)),
+	    y: Math.max(8, Math.min(y, rect.height - panelHeight - 8))
+	  };
+	}
 
 	function getDefaultPanelPosition(nodeId) {
 	  const canvas = document.getElementById("canvas");
@@ -630,15 +674,21 @@
         return;
       }
 
-      var note = {
-        id:          generateId(),
-        componentId: activeNodeId,
-        author:      currentAuthor,
-        timestamp:   formatTimestamp(new Date()),
-        text:        text,
-        isDeleted:   false,
-        replies:     []
-      };
+	  var generalPos = isGeneralNoteId(activeNodeId)
+	    ? screenToSvgPoint(noteDialogAnchor.x, noteDialogAnchor.y)
+	    : null;
+
+	  var note = {
+	    id:          generateId(),
+	    componentId: activeNodeId,
+	    author:      currentAuthor,
+	    timestamp:   formatTimestamp(new Date()),
+	    text:        text,
+	    isDeleted:   false,
+	    x:            generalPos ? generalPos.x : null,
+	    y:            generalPos ? generalPos.y : null,
+	    replies:     []
+	  };
 
       if (!notesByNode[activeNodeId]) notesByNode[activeNodeId] = [];
       notesByNode[activeNodeId].push(note);
@@ -717,6 +767,19 @@
 	  if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
 
 	  if (lastRenderedGraph) renderGraph(lastRenderedGraph);
+	}
+	
+	function persistGeneralNotePosition(nodeId, x, y) {
+	  if (!isGeneralNoteId(nodeId)) return;
+
+	  var notes = notesByNode[nodeId];
+	  if (!notes) return;
+
+	  notes.forEach(function(note) {
+	    note.x = x;
+	    note.y = y;
+	    callBridge('saveNote', JSON.stringify(note));
+	  });
 	}
 
     // Phase 5: called by Java on diagram open with the persisted notes array
@@ -1031,7 +1094,7 @@
 	  const header = document.createElement("div");
 	  header.className = "floating-note-header";
 	  header.innerHTML = `
-	    <span>Note: ${escapeHtml(nodeId)}</span>
+	    <span>Note: ${escapeHtml(isGeneralNoteId(nodeId) ? "General Notes" : nodeId)}</span>
 	    <button class="floating-note-close" type="button">&times;</button>
 	  `;
 
@@ -1269,7 +1332,7 @@
 
         const nodes = {};
 		const defaultWidth = 280;
-		const expandedWidth = 460;
+		const expandedWidth = 280;
         const cols = 4;
 		
 		const expandedNodes = window.expandedNodes || {};
@@ -1445,9 +1508,10 @@
 
         updateEdges();
 
-        let dragged = null;
-        let offsetX = 0;
-        let offsetY = 0;
+		let dragged = null;
+		let draggedGeneralNoteId = null;
+		let offsetX = 0;
+		let offsetY = 0;
 
 		viewport.querySelectorAll('.node').forEach(function(nodeEl) 
     {
@@ -1469,10 +1533,14 @@
 			if (e.target.classList.contains('note-badge') ||
 			    e.target.classList.contains('note-badge-text')) return;
 		    const id = nodeEl.getAttribute('data-id');
-		    dragged = nodes[id];
-		    offsetX = e.clientX - dragged.x;
-		    offsetY = e.clientY - dragged.y;
-		    e.stopPropagation();
+			dragged = nodes[id];
+			draggedGeneralNoteId = null;
+
+			var svgPoint = screenToSvgPoint(e.clientX, e.clientY);
+			offsetX = svgPoint.x - dragged.x;
+			offsetY = svgPoint.y - dragged.y;
+
+			e.stopPropagation();
 		  });
 
 		  nodeEl.addEventListener('contextmenu', function(e) {
@@ -1483,16 +1551,24 @@
 		  });
 		});
 
-        document.addEventListener('mousemove', function(e) {
-          if (!dragged) return;
-          dragged.x = e.clientX - offsetX;
-          dragged.y = e.clientY - offsetY;
-          updateEdges();
-        });
+		document.addEventListener('mousemove', function(e) {
+		  if (!dragged) return;
 
-        document.addEventListener('mouseup', function() {
-          dragged = null;
-        });
+		  var svgPoint = screenToSvgPoint(e.clientX, e.clientY);
+		  dragged.x = svgPoint.x - offsetX;
+		  dragged.y = svgPoint.y - offsetY;
+
+		  updateEdges();
+		});
+
+		document.addEventListener('mouseup', function() {
+		  if (dragged && draggedGeneralNoteId) {
+		    persistGeneralNotePosition(draggedGeneralNoteId, dragged.x, dragged.y);
+		  }
+
+		  dragged = null;
+		  draggedGeneralNoteId = null;
+		});
 
         let pan = { x: 0, y: 0 };
         let isPanning = false;
@@ -1531,18 +1607,35 @@
 
         Object.keys(notesByNode).forEach(function(ghostId) {
           if (currentIds[ghostId]) return; // still in diagram
-          var activeGhostNotes = notesByNode[ghostId].filter(function(n) { return !n.isDeleted; });
-          if (activeGhostNotes.length === 0) return;
+		  var activeGhostNotes = notesByNode[ghostId].filter(function(n) { return !n.isDeleted; });
+		  if (activeGhostNotes.length === 0) return;
 
-          var gw = 280, gh = 80;
+		  var firstNote = activeGhostNotes[activeGhostNotes.length - 1];
+
+		  for (var i = activeGhostNotes.length - 1; i >= 0; i--) {
+		    if (activeGhostNotes[i].x != null && activeGhostNotes[i].y != null) {
+		      firstNote = activeGhostNotes[i];
+		      break;
+		    }
+		  }
+
+		  var gw = 280, gh = 80;
+		  var finalX = ghostX;
+		  var finalY = ghostY;
+
+		  if (isGeneralNoteId(ghostId) && firstNote) {
+			finalX = firstNote.x != null ? firstNote.x : ghostX;
+			finalY = firstNote.y != null ? firstNote.y : ghostY;
+		  }
+		  
           var gg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           gg.setAttribute('class', 'node note-ghosted');
           gg.setAttribute('data-id', ghostId);
-          gg.setAttribute('transform', 'translate(' + ghostX + ',' + ghostY + ')');
+		  gg.setAttribute('transform', 'translate(' + finalX + ',' + finalY + ')');
           gg.style.opacity = '0.5';
 
-          nodes[ghostId] = { x: ghostX, y: ghostY, width: gw, height: gh };
-          nodeAnchors[ghostId] = { x: ghostX + gw + 8, y: ghostY + 12 };
+		  nodes[ghostId] = { x: finalX, y: finalY, width: gw, height: gh };
+		  nodeAnchors[ghostId] = { x: finalX + gw + 8, y: finalY + 12 };
 
           var gbody = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
           gbody.setAttribute('class', 'node-body');
@@ -1578,6 +1671,23 @@
           gbadgeTxt.setAttribute('x', gw - 16);
           gbadgeTxt.setAttribute('y', 16);
           gbadgeTxt.textContent = String(activeGhostNotes.length);
+
+		  if (isGeneralNoteId(ghostId))
+          {
+			gtitle.textContent = "General Note";
+			gtitle.style.fill = "#1f2937";
+			gtitle.style.opacity = "1";
+
+			gbody.style.strokeDasharray = "0";
+			gbody.style.fill = "#ffffff";
+			gbody.style.stroke = "#4aa3df";
+
+			gheader.style.fill = "#bdeaff";
+			gheader.style.stroke = "#4aa3df";
+			gheader.style.opacity = "1";
+
+			gg.style.opacity = "1";
+          }
 		  
 		  gbadgeTxt.addEventListener('click', (function(id) {
 		    return function(ev) {
@@ -1588,9 +1698,32 @@
 		  
           gg.appendChild(gbadgeTxt);
 
-          viewport.appendChild(gg);
+		  viewport.appendChild(gg);
 
-          ghostX += 360;
+		  if (isGeneralNoteId(ghostId)) {
+		    gg.addEventListener('mousedown', function(e) {
+		      if (e.button !== 0) return;
+
+		      if (e.target.classList.contains('note-badge') ||
+		          e.target.classList.contains('note-badge-text')) {
+		        return;
+		      }
+
+			  var id = this.getAttribute('data-id');
+			  dragged = nodes[id];
+			  draggedGeneralNoteId = id;
+
+		      var svgPoint = screenToSvgPoint(e.clientX, e.clientY);
+		      offsetX = svgPoint.x - dragged.x;
+		      offsetY = svgPoint.y - dragged.y;
+
+		      e.preventDefault();
+		      e.stopPropagation();
+		    });
+		  }
+
+		  ghostX += 360;
+		  
           if (ghostX > 1500) { ghostX = 100; ghostY += 130; }
         });
 
@@ -1727,6 +1860,17 @@
         document.onmousemove = null;
       }
     }
+
+    // General notes
+    const canvas = document.getElementById('canvas');
+
+    canvas.addEventListener('contextmenu', function(e) {
+		    e.preventDefault();
+		    e.stopPropagation();
+			showContextMenu(e.clientX, e.clientY, createGeneralNoteId());
+		  });
+    
+
   </script>
 </body>
 </html>
