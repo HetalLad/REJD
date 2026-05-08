@@ -1,5 +1,13 @@
+/*
+File name: NoteRepository.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag 
+Description: The NoteRepository is initalized here to maintain a 'repository' of notes.
+*/
+
+// Package Statement
 package gwu.rejd.notes;
 
+// Import statements
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
