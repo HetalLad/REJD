@@ -477,7 +477,7 @@ public class RejdDiagramView extends ViewPart {
                 currentModel     = model;
                 currentSourceDir = sourceDir;
                 currentJavaPaths = javaPaths;
-                projectRoot      = sourceDir.toPath();
+                projectRoot      = resolveProjectRoot(sourceDir.toPath());
 
                 String json = buildGraphJson(model, DiagramScope.entireProject());
 
@@ -677,6 +677,32 @@ public class RejdDiagramView extends ViewPart {
     }
 
     // ── Graph building ────────────────────────────────────────────────────────
+
+    /**
+     * Resolves the true project root from a source directory path.
+     * Walks up past common Maven/Gradle source layouts:
+     *   src/main/java → project root (3 levels up)
+     *   src/main      → project root (2 levels up)
+     *   src           → project root (1 level up)
+     * Falls back to the given path if none of those patterns match.
+     */
+    private static Path resolveProjectRoot(Path sourceDir) {
+        Path p = sourceDir.toAbsolutePath().normalize();
+        // Strip trailing src/main/java, src/main, src, or just src
+        String[] strip = { "src/main/java", "src" + File.separator + "main" + File.separator + "java",
+                           "src/main",      "src" + File.separator + "main",
+                           "src" };
+        String pathStr = p.toString();
+        for (String suffix : strip) {
+            if (pathStr.endsWith(File.separator + suffix) || pathStr.endsWith("/" + suffix)) {
+                int idx = pathStr.lastIndexOf(File.separator + suffix);
+                if (idx < 0) idx = pathStr.lastIndexOf("/" + suffix);
+                if (idx >= 0) return java.nio.file.Paths.get(pathStr.substring(0, idx));
+            }
+        }
+        // Already at root or unrecognised layout — use as-is
+        return p;
+    }
 
     private String buildGraphJson(ProjectModel model, DiagramScope scope) {
         gwu.rejd.extractor.RelationshipExtractor relExtractor =
