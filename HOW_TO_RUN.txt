@@ -3,23 +3,45 @@
   Complete Setup and Run Guide
 ================================================================================
 
-QUICK START (for the demo)
----------------------------
-Already have Java 17+ and Maven?  Just do this:
+QUICK START (Eclipse Plugin — for the demo)
+--------------------------------------------
+The Eclipse plugin requires TWO Eclipse windows, working in sequence:
 
-  Option A — Standalone JavaFX App (no Eclipse needed):
-      cd ~/eclipse-workspace/rejd
-      mvn javafx:run
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  ECLIPSE WINDOW 1 (Developer IDE — your normal Eclipse)            │
+  │  Opens the rejd project source, builds the JAR, launches plugin.  │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  ECLIPSE WINDOW 2 (Runtime Eclipse — opened automatically)         │
+  │  This is where the REJD plugin runs. You import Java projects      │
+  │  here and generate diagrams with the right-click menu.             │
+  └─────────────────────────────────────────────────────────────────────┘
 
-  Option B — Eclipse Plugin (inside Eclipse IDE):
-      1. Open Eclipse → File > Import > General > Existing Projects into Workspace
-         → Browse to:  <workspace>/rejd/GUI Portion/plugin  → Finish
-      2. Right-click the "plugin" project → Run As → Eclipse Application
-      3. In the new Eclipse window, right-click any Java project/file →
-         Generate Class Diagram  (or use the REJD menu at the top)
+  PHASE 1 — In Eclipse Window 1 (Developer IDE):
+      1. File > Import > General > Existing Projects into Workspace
+         → Browse to: <workspace>/rejd/GUI Portion/plugin → Finish
+      2. Open a Terminal in the rejd project root and rebuild the JAR:
+             cd ~/eclipse-workspace/rejd
+             ./build-eclipse-plugin.sh          ← macOS
+         Or on Windows:
+             mvn package -Peclipse-bundle
+             copy target\rejd-0.0.1-SNAPSHOT-eclipse-plugin.jar ^
+                  "GUI Portion\plugin\lib\rejd-all.jar"
+      3. Back in Eclipse Window 1:
+         Project > Clean... → select "plugin" → Clean
+      4. Right-click the "plugin" project → Run As → Eclipse Application
+         ► This opens Eclipse Window 2 automatically.
 
-The rest of this file explains prerequisites, step-by-step setup, and
-troubleshooting for all platforms.
+  PHASE 2 — In Eclipse Window 2 (Runtime Eclipse, opened automatically):
+      5. A login dialog appears — click "Continue".
+      6. The "REJD Diagrams" view opens at the bottom automatically.
+      7. File > Import > General > Existing Projects into Workspace
+         → Import any Java project you want to visualize.
+      8. Right-click the project/package/file in Package Explorer
+         → "Generate Class Diagram"   (or use the REJD menu at the top)
+
+For the standalone app (no Eclipse needed), see Part 2.
+Full step-by-step setup and troubleshooting are in Parts 1–7 below.
 
 
 ================================================================================
@@ -201,13 +223,14 @@ The plugin (GUI Portion/plugin/) adds REJD to Eclipse. It uses a native SWT
 Browser so NO JavaFX install is required on the machine running the plugin.
 
 ══════════════════════════════════════════════════════════════════════════════
-  STEP A: VERIFY OR REBUILD rejd-all.jar
+  STEP A: BUILD rejd-all.jar  [Do this in Eclipse Window 1 / Terminal]
 ══════════════════════════════════════════════════════════════════════════════
 
-The pre-built jar is already in the repo at:
-    GUI Portion/plugin/lib/rejd-all.jar   (~94 MB)
+⚠ You MUST rebuild this JAR yourself before running the plugin.
+  Do not rely on the pre-built copy in the repo — always build fresh
+  so the jar matches your current source code.
 
-You only need to rebuild it if you change the core library source code.
+Open a Terminal, navigate to the rejd project root, and run:
 
 ┌── macOS ──────────────────────────────────────────────────────────────────┐
 │                                                                            │
@@ -254,10 +277,13 @@ You only need to rebuild it if you change the core library source code.
 └────────────────────────────────────────────────────────────────────────────┘
 
 ══════════════════════════════════════════════════════════════════════════════
-  STEP B: IMPORT THE PLUGIN PROJECT INTO ECLIPSE
+  STEP B: IMPORT THE PLUGIN PROJECT  [Eclipse Window 1 — Developer IDE]
 ══════════════════════════════════════════════════════════════════════════════
 
-1. Open Eclipse.
+  This is done in your normal Eclipse (Eclipse Window 1), NOT the runtime
+  Eclipse that will pop up later.
+
+1. Open Eclipse (Window 1).
 2. File > Import > General > Existing Projects into Workspace
 3. Click "Browse" and select:
        <workspace>/rejd/GUI Portion/plugin
@@ -266,10 +292,10 @@ You only need to rebuild it if you change the core library source code.
    ⚠ Do NOT select the rejd root folder here. Only import "GUI Portion/plugin".
 
 ══════════════════════════════════════════════════════════════════════════════
-  STEP C: VERIFY THE BUILD PATH (fix red errors)
+  STEP C: VERIFY THE BUILD PATH (fix red errors)  [Eclipse Window 1]
 ══════════════════════════════════════════════════════════════════════════════
 
-If Eclipse shows red error markers in the project:
+If Eclipse Window 1 shows red error markers in the plugin project:
   1. Right-click the "plugin" project > Refresh (F5).
   2. Project > Clean... > select "plugin" > Clean.
 
@@ -279,24 +305,30 @@ If errors persist about missing classes (e.g. "gwu.rejd.* does not exist"):
   3. If missing: click "Add JARs..." > navigate to plugin/lib/ > select rejd-all.jar.
 
 ══════════════════════════════════════════════════════════════════════════════
-  STEP D: LAUNCH THE PLUGIN (Run as Eclipse Application)
+  STEP D: LAUNCH THE PLUGIN  [Eclipse Window 1 → opens Eclipse Window 2]
 ══════════════════════════════════════════════════════════════════════════════
+
+  Do this in Eclipse Window 1 (your developer Eclipse):
 
   Option 1 (easiest):
       Right-click the "plugin" project → Run As → Eclipse Application
 
   Option 2:
-      Open:  GUI Portion/plugin/plugin.xml  in Eclipse
+      Open:  GUI Portion/plugin/plugin.xml  in Eclipse Window 1
       Click: "Launch an Eclipse application" link in the Overview tab
 
-  ► This opens a SECOND Eclipse window (the "runtime Eclipse") with the
-    REJD plugin installed and active.
+  ► This opens Eclipse Window 2 (the "runtime Eclipse") automatically.
+    The REJD plugin is installed and running inside Window 2.
+    You do NOT need to do anything else in Window 1 after this.
 
 ══════════════════════════════════════════════════════════════════════════════
-  STEP E: USE THE PLUGIN IN THE RUNTIME ECLIPSE WINDOW
+  STEP E: USE THE PLUGIN  [Eclipse Window 2 — Runtime Eclipse]
 ══════════════════════════════════════════════════════════════════════════════
 
-When the runtime Eclipse window opens:
+  Everything below happens in Eclipse Window 2 (the one that opened
+  automatically). Do NOT switch back to Eclipse Window 1.
+
+When Eclipse Window 2 opens:
 
   1. A login dialog appears — click "Continue" (your OS username is pre-filled).
 
