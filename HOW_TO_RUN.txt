@@ -8,13 +8,14 @@ QUICK START (Eclipse Plugin — for the demo)
 The Eclipse plugin requires TWO Eclipse windows, working in sequence:
 
   ┌─────────────────────────────────────────────────────────────────────┐
-  │  ECLIPSE WINDOW 1 (Developer IDE — your normal Eclipse)            │
-  │  Opens the rejd project source, builds the JAR, launches plugin.  │
+  │  ECLIPSE WINDOW 1 (Developer IDE — your normal Eclipse)             │
+  │  Opens the rejd project source, builds the JAR, launches plugin.    │
   └─────────────────────────────────────────────────────────────────────┘
   ┌─────────────────────────────────────────────────────────────────────┐
-  │  ECLIPSE WINDOW 2 (Runtime Eclipse — opened automatically)         │
-  │  This is where the REJD plugin runs. You import Java projects      │
-  │  here and generate diagrams with the right-click menu.             │
+  │  ECLIPSE WINDOW 2 (Runtime Eclipse — opened automatically)          │
+  │  This is where the REJD plugin runs. You import Java projects       │
+  │  here and generate diagrams with the right-click menu.              
+  │
   └─────────────────────────────────────────────────────────────────────┘
 
   PHASE 1 — In Eclipse Window 1 (Developer IDE):

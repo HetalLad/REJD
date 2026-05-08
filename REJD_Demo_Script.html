@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; margin: 2.5cm; line-height: 1.4; color: #111; }
+  h1   { font-size: 20pt; color: #1F3864; border-bottom: 3px solid #1F3864; padding-bottom: 6px; }
+  h2   { font-size: 14pt; color: #2E75B6; margin-top: 28px; border-bottom: 1px solid #BDD7EE; padding-bottom: 3px; }
+  h3   { font-size: 12pt; color: #1F3864; margin-top: 18px; margin-bottom: 4px; }
+  .subtitle { font-size: 13pt; color: #555; margin-top: -10px; margin-bottom: 24px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10.5pt; }
+  th    { background: #2E75B6; color: white; padding: 7px 10px; text-align: left; }
+  td    { padding: 6px 10px; border: 1px solid #BDD7EE; vertical-align: top; }
+  tr:nth-child(even) { background: #EBF3FB; }
+  .step { background: #F2F7FD; border-left: 4px solid #2E75B6; padding: 8px 14px; margin: 8px 0; }
+  .step b { color: #1F3864; }
+  .badge { display: inline-block; background: #2E75B6; color: white; border-radius: 10px;
+           padding: 1px 9px; font-size: 9pt; margin-left: 6px; vertical-align: middle; }
+  .badge-green { background: #375623; }
+  .badge-orange { background: #843C0C; }
+  code  { font-family: Consolas, monospace; background: #EEF2F7; padding: 1px 5px;
+          border-radius: 3px; font-size: 10pt; }
+  .note { background: #FFF9E6; border-left: 4px solid #FFB800; padding: 7px 12px; margin: 8px 0; font-size: 10pt; }
+  .section-intro { color: #444; margin-bottom: 12px; font-style: italic; }
+  ul { margin-top: 4px; }
+  li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<h1>REJD — Professor Demo Script</h1>
+<p class="subtitle">UML Class &amp; Sequence Diagram Generator · Eclipse Plugin · Spring 2026</p>
+
+<p>This document walks through <strong>concrete demo scenarios</strong> using the REJD project's own
+source packages. Each scenario is chosen to highlight a specific UML concept or plugin feature.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Setup Checklist (Before You Start)</h2>
+
+<div class="step"><b>Step 1 —</b> Open <b>Eclipse Window 1</b> (developer IDE). Confirm the <code>plugin</code> project is imported.</div>
+<div class="step"><b>Step 2 —</b> Run As → Eclipse Application to launch <b>Eclipse Window 2</b> (runtime IDE).</div>
+<div class="step"><b>Step 3 —</b> In Window 2: File → Import → General → Existing Projects → browse to <code>~/eclipse-workspace/rejd</code> → Finish.</div>
+<div class="step"><b>Step 4 —</b> The <b>REJD Diagrams</b> tab appears automatically. Log in with any username when prompted.</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Part 1 — UML Class Diagram Demos</h2>
+
+<p class="section-intro">Right-click any package in the Project Explorer → <em>REJD Diagrams → Generate Class Diagram</em>.</p>
+
+<!-- ─── Demo 1 ─── -->
+<h3>Demo 1 · Aggregation &amp; Composition — <code>gwu.rejd.model</code></h3>
+<p><b>What to right-click:</b> <code>gwu.rejd.model</code> package</p>
+<p><b>Classes shown (7):</b> ProjectModel, TypeModel, FieldModel, MethodModel, ParamModel, RelationshipModel, PackageNode</p>
+
+<table>
+  <tr><th>UML Relationship</th><th>Between</th><th>How to point it out</th></tr>
+  <tr><td><b>Aggregation</b></td><td>ProjectModel → TypeModel</td><td>ProjectModel holds a <code>Map&lt;String, TypeModel&gt;</code> — "has-a" with shared ownership</td></tr>
+  <tr><td><b>Aggregation</b></td><td>TypeModel → FieldModel</td><td>TypeModel holds <code>List&lt;FieldModel&gt;</code></td></tr>
+  <tr><td><b>Aggregation</b></td><td>TypeModel → MethodModel</td><td>TypeModel holds <code>List&lt;MethodModel&gt;</code></td></tr>
+  <tr><td><b>Aggregation</b></td><td>MethodModel → ParamModel</td><td>MethodModel holds <code>List&lt;ParamModel&gt;</code></td></tr>
+  <tr><td><b>Association</b></td><td>TypeModel → RelationshipModel</td><td>TypeModel references relationships to other types</td></tr>
+  <tr><td><b>Association</b></td><td>ProjectModel → PackageNode</td><td>Project tracks its package hierarchy</td></tr>
+</table>
+
+<div class="note">💡 <b>Talking point:</b> "REJD automatically infers these relationships by parsing field types and method signatures — no annotations needed."</div>
+
+<!-- ─── Demo 2 ─── -->
+<h3>Demo 2 · Enumerations — <code>gwu.rejd.model.enums</code> <span class="badge">Separate Package</span></h3>
+<p><b>What to right-click:</b> <code>gwu.rejd.model.enums</code> package</p>
+<p><b>Classes shown (3):</b> RelationshipKind, TypeKind, Visibility</p>
+
+<table>
+  <tr><th>Enum</th><th>Constants</th><th>UML Concept</th></tr>
+  <tr><td><code>TypeKind</code></td><td>CLASS, INTERFACE, ENUM, ANNOTATION, RECORD</td><td>Enum type — shown as «enumeration» stereotype</td></tr>
+  <tr><td><code>Visibility</code></td><td>PUBLIC, PRIVATE, PROTECTED, PACKAGE</td><td>Enum with no relationships — standalone node</td></tr>
+  <tr><td><code>RelationshipKind</code></td><td>EXTENDS, IMPLEMENTS, AGGREGATES, ASSOCIATES, USES, REALIZES</td><td>Enum encoding UML relationship vocabulary</td></tr>
+</table>
+
+<div class="note">💡 <b>Talking point:</b> "Selecting only the enums sub-package proves the tool respects Java package boundaries — 7 model classes stay out."</div>
+
+<!-- ─── Demo 3 ─── -->
+<h3>Demo 3 · Notes System — <code>gwu.rejd.notes</code> <span class="badge">Composition</span></h3>
+<p><b>What to right-click:</b> <code>gwu.rejd.notes</code> package</p>
+<p><b>Classes shown:</b> NoteModel, ReplyModel, NoteRepository, NotePreloadCache</p>
+
+<table>
+  <tr><th>UML Relationship</th><th>Between</th><th>Description</th></tr>
+  <tr><td><b>Composition</b></td><td>NoteModel → ReplyModel</td><td>A note owns its replies — replies cannot exist without the note</td></tr>
+  <tr><td><b>Recursion</b></td><td>ReplyModel → ReplyModel</td><td>Self-referencing: replies-to-replies (nested threading)</td></tr>
+  <tr><td><b>Dependency</b></td><td>NoteRepository → NoteModel</td><td>Repository loads/saves NoteModel objects but doesn't own them</td></tr>
+</table>
+
+<div class="note">💡 <b>Talking point:</b> "NoteModel→ReplyModel is a real composition — the tool distinguishes it from simple aggregation because ReplyModel has no independent lifecycle."</div>
+
+<!-- ─── Demo 4 ─── -->
+<h3>Demo 4 · GUI Controller Pattern — <code>gwu.rejd.gui</code></h3>
+<p><b>What to right-click:</b> <code>gwu.rejd.gui</code> package</p>
+<p><b>Classes shown:</b> ClassDiagramView, ClassDiagramController, DiagramScope, ProjectModelFilter, RelationshipScopeFilter, RejdApp</p>
+
+<table>
+  <tr><th>UML Relationship</th><th>Between</th><th>Description</th></tr>
+  <tr><td><b>Association</b></td><td>ClassDiagramController → ClassDiagramView</td><td>MVC pattern: controller drives the view</td></tr>
+  <tr><td><b>Dependency</b></td><td>ClassDiagramController → DiagramScope</td><td>Uses scope as a parameter to filter what to display</td></tr>
+  <tr><td><b>Dependency</b></td><td>ClassDiagramController → ProjectModelFilter</td><td>Delegates filtering to a helper class</td></tr>
+  <tr><td><b>Association</b></td><td>RejdApp → ClassDiagramController</td><td>Main application composes the controller</td></tr>
+</table>
+
+<div class="note">💡 <b>Talking point:</b> "This is a textbook MVC pattern — REJD surfaces it from raw Java source without any UML annotations."</div>
+
+<!-- ─── Demo 5 ─── -->
+<h3>Demo 5 · Extractor Pipeline — <code>gwu.rejd.extractor</code></h3>
+<p><b>What to right-click:</b> <code>gwu.rejd.extractor</code> package</p>
+<p><b>Classes shown:</b> MultiFileProjectLoader, RelationshipExtractor, LocalVarCollector, ASTVisitor, CallCollector</p>
+
+<table>
+  <tr><th>UML Relationship</th><th>Between</th><th>Description</th></tr>
+  <tr><td><b>Dependency</b></td><td>MultiFileProjectLoader → RelationshipExtractor</td><td>Loader calls extractor to identify type relationships</td></tr>
+  <tr><td><b>Dependency</b></td><td>RelationshipExtractor → ASTVisitor</td><td>Uses AST traversal to find relationships in source</td></tr>
+  <tr><td><b>Dependency</b></td><td>MultiFileProjectLoader → ProjectModel</td><td>Builder pattern: loader constructs the project model</td></tr>
+</table>
+
+<!-- ─── Demo 6 ─── -->
+<h3>Demo 6 · Scope Filtering — Entire Project <span class="badge badge-orange">Most Impressive</span></h3>
+<p><b>What to right-click:</b> The <b>top-level <code>rejd</code> project</b> in Project Explorer</p>
+<p><b>Effect:</b> Loads all ~35 classes across all packages, renders the full system diagram.</p>
+<ul>
+  <li>Use the <b>Scope dropdown</b> in the REJD Diagrams panel to filter by package on the fly</li>
+  <li>Show <code>gwu.rejd.model</code> scope → only model classes and their relationships</li>
+  <li>Show <code>gwu.rejd.gui</code> scope → only GUI layer</li>
+  <li>Switch to <code>Entire Project</code> → full diagram returns</li>
+</ul>
+<div class="note">💡 <b>Talking point:</b> "The scope filter is dynamic — no re-parsing, the model is built once and filtered in memory."</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Part 2 — UML Sequence Diagram Demos</h2>
+
+<p class="section-intro">Right-click a <code>.java</code> file → <em>REJD Diagrams → Generate Sequence Diagram</em> → pick a method from the list.</p>
+
+<!-- ─── Seq Demo 1 ─── -->
+<h3>Seq Demo 1 · Simple Method Chain — <code>NoteRepository.java</code> → <code>save()</code></h3>
+<p><b>How:</b> Right-click <code>NoteRepository.java</code> → Generate Sequence Diagram → select <code>save(Path, List)</code></p>
+<p><b>Concepts shown:</b></p>
+<ul>
+  <li>Linear message sequence (caller → repository → file system)</li>
+  <li>Method parameters shown on arrows</li>
+  <li>Return values on reply arrows</li>
+</ul>
+<div class="note">💡 <b>Good first demo</b> — clean, short, easy to follow.</div>
+
+<!-- ─── Seq Demo 2 ─── -->
+<h3>Seq Demo 2 · Conditional / Branching — <code>ClassDiagramController.java</code> → <code>setScope()</code></h3>
+<p><b>How:</b> Right-click <code>ClassDiagramController.java</code> → Generate Sequence Diagram → select <code>setScope(DiagramScope)</code></p>
+<p><b>Concepts shown:</b></p>
+<ul>
+  <li><b>Alt fragment</b> — different rendering paths depending on scope type</li>
+  <li>Self-call (controller calls its own <code>renderCurrentScope()</code>)</li>
+  <li>Object creation shown as constructor call arrow</li>
+</ul>
+
+<!-- ─── Seq Demo 3 ─── -->
+<h3>Seq Demo 3 · Multi-participant Pipeline — <code>MultiFileProjectLoader.java</code> → <code>loadProject()</code></h3>
+<p><b>How:</b> Right-click <code>MultiFileProjectLoader.java</code> → Generate Sequence Diagram → select <code>loadProject(String, List)</code></p>
+<p><b>Concepts shown:</b></p>
+<ul>
+  <li><b>Multiple lifelines</b> — Loader, ASTParser, RelationshipExtractor, ProjectModel all appear</li>
+  <li><b>Loop fragment</b> — iterates over each .java file</li>
+  <li>Object creation: <code>new ProjectModel()</code> shown mid-sequence</li>
+</ul>
+<div class="note">💡 <b>Most complex sequence demo</b> — shows the full parsing pipeline in one diagram.</div>
+
+<!-- ─── Seq Demo 4 ─── -->
+<h3>Seq Demo 4 · Recursive / Nested Calls — <code>ReplyModel.java</code> or <code>NotesBridge.java</code></h3>
+<p><b>How:</b> Right-click <code>ClassDiagramView.java</code> → Generate Sequence Diagram → select <code>saveReply()</code> method via the NotesBridge inner class</p>
+<p><b>Concepts shown:</b></p>
+<ul>
+  <li><b>Recursive self-call</b> — <code>findReplyById()</code> calls itself for nested replies</li>
+  <li>Inner class as a separate lifeline</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Part 3 — Plugin-Specific Feature Demos</h2>
+
+<h3>Feature A · Persistent Notes on Diagram Nodes</h3>
+<ol>
+  <li>Generate the class diagram for <code>gwu.rejd.model</code></li>
+  <li>Right-click the <code>TypeModel</code> node in the diagram → <b>Add Note</b></li>
+  <li>Type a note (e.g. "Central model class — aggregates fields, methods, relationships")</li>
+  <li>Click Save — note badge appears on the node</li>
+  <li>Close and re-open the diagram → note is still there (persisted to <code>.rejd/rejd-notes.json</code>)</li>
+</ol>
+<div class="note">💡 <b>Talking point:</b> "Notes survive across sessions — stored as JSON in the project root, not in the diagram file."</div>
+
+<h3>Feature B · Export PNG</h3>
+<ol>
+  <li>With any class diagram rendered, click <b>Export PNG</b> in the top-left of the REJD panel</li>
+  <li>Choose "Export with notes" or "Export without notes"</li>
+  <li>Save to Desktop — open the file to show a clean PNG export</li>
+</ol>
+
+<h3>Feature C · Login &amp; Author Attribution</h3>
+<ol>
+  <li>Show the login dialog that appears on Eclipse startup</li>
+  <li>Enter your name → notes you create are attributed to you</li>
+  <li>Notes from different users show different author names in the bubble</li>
+</ol>
+
+<h3>Feature D · Dynamic Scope Filter (Class Diagram)</h3>
+<ol>
+  <li>Right-click the project → Generate Class Diagram (loads all packages)</li>
+  <li>Use the <b>Scope</b> dropdown at the top of the REJD panel</li>
+  <li>Switch between <code>Entire Project</code>, <code>gwu.rejd.model</code>, <code>gwu.rejd.gui</code></li>
+  <li>Show the diagram re-renders instantly — no re-parsing</li>
+</ol>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Quick Reference — UML Association Types Demonstrated</h2>
+
+<table>
+  <tr><th>Association Type</th><th>Demo Package</th><th>Example</th></tr>
+  <tr><td>Aggregation (has-a, shared)</td><td>gwu.rejd.model</td><td>ProjectModel → TypeModel</td></tr>
+  <tr><td>Composition (has-a, owned)</td><td>gwu.rejd.notes</td><td>NoteModel → ReplyModel</td></tr>
+  <tr><td>Association (uses)</td><td>gwu.rejd.model</td><td>TypeModel → RelationshipModel</td></tr>
+  <tr><td>Dependency (uses temporarily)</td><td>gwu.rejd.extractor</td><td>MultiFileProjectLoader → RelationshipExtractor</td></tr>
+  <tr><td>Self-reference (recursive)</td><td>gwu.rejd.notes</td><td>ReplyModel → ReplyModel</td></tr>
+  <tr><td>Enumeration</td><td>gwu.rejd.model.enums</td><td>TypeKind, Visibility, RelationshipKind</td></tr>
+  <tr><td>MVC Controller-View</td><td>gwu.rejd.gui</td><td>ClassDiagramController → ClassDiagramView</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Recommended Demo Order</h2>
+<ol>
+  <li><b>Enums package</b> (Demo 2) — simple, visual, shows package isolation</li>
+  <li><b>Model package</b> (Demo 1) — shows aggregation chain clearly</li>
+  <li><b>Notes package</b> (Demo 3) — shows composition + self-reference</li>
+  <li><b>Scope filter</b> (Demo 6) — dynamic, impressive</li>
+  <li><b>Sequence diagram</b> (Seq Demo 1: NoteRepository.save) — simple sequence</li>
+  <li><b>Sequence diagram</b> (Seq Demo 3: loadProject) — complex pipeline</li>
+  <li><b>Persistent notes feature</b> (Feature A) — interactive, memorable</li>
+  <li><b>Export PNG</b> (Feature B) — concrete deliverable</li>
+</ol>
+
+<p style="margin-top:40px; color:#666; font-size:9pt; border-top:1px solid #ccc; padding-top:8px;">
+REJD — Reverse Engineering Java Diagrams · GWU CSCI · Spring 2026
+</p>
+
+</body>
+</html>

@@ -32,7 +32,9 @@ public class SimpleGraphGenerator {
 	        sb.append("{")
 	          .append("\"id\":\"").append(escape(id)).append("\",")
 	          .append("\"label\":\"").append(escape(type.getSimpleName())).append("\",")
-	          .append("\"members\":\"").append(escape(buildMembers(type))).append("\"")
+	          .append("\"members\":\"").append(escape(buildMembers(type))).append("\",")
+	          .append("\"kind\":\"").append(type.getKind().name()).append("\",")
+	          .append("\"isAbstract\":").append(type.getModifiers().contains("abstract"))
 	          .append("}");
 	    }
 

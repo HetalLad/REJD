@@ -12,6 +12,13 @@
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javafx.version>17.0.10</javafx.version>
+    <!--
+      Platform classifier for JavaFX JARs.
+      Default: "mac" (x86_64 / Rosetta) — matches the Eclipse JVM.
+      Overridden to "mac-aarch64" by the mac-aarch64 profile when Maven runs
+      on Apple Silicon so that `mvn javafx:run` loads the arm64 native libs.
+    -->
+    <javafx.classifier>mac</javafx.classifier>
   </properties>
 
   <dependencies>
@@ -27,28 +34,59 @@
       <version>1.2024.3</version>
     </dependency>
 
+    <!--
+      Explicit platform-classified JavaFX JARs.
+      The unclassified javafx-* POMs (e.g. javafx-controls:17.0.10) all
+      reference the parent org.openjfx:javafx-base-pom, which contains 6
+      OS-specific <activation><os> profiles.  M2E's embedded model builder
+      raises one validation error per profile ("N problems building effective
+      model for javafx-controls") during its dependency-collection step.
+      Using classified JARs directly — e.g. javafx-controls:17.0.10:mac —
+      causes M2E to resolve a concrete flat artifact rather than walking the
+      unclassified POM hierarchy, avoiding those model-build errors entirely.
+
+      javafx-base and javafx-graphics are declared explicitly even though they
+      are also transitive deps; this prevents M2E from falling back to the
+      unclassified resolution path for those transitive modules.
+
+      javafx.classifier defaults to "mac" (x86_64); overridden to
+      "mac-aarch64" by the mac-aarch64 profile on Apple Silicon arm64 hosts.
+    -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-base</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.classifier}</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-graphics</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.classifier}</classifier>
+    </dependency>
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
       <version>${javafx.version}</version>
+      <classifier>${javafx.classifier}</classifier>
     </dependency>
-
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-fxml</artifactId>
       <version>${javafx.version}</version>
+      <classifier>${javafx.classifier}</classifier>
     </dependency>
-
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-web</artifactId>
       <version>${javafx.version}</version>
+      <classifier>${javafx.classifier}</classifier>
     </dependency>
-
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-swing</artifactId>
       <version>${javafx.version}</version>
+      <classifier>${javafx.classifier}</classifier>
     </dependency>
 
     <dependency>
@@ -59,6 +97,26 @@
   </dependencies>
 
   <profiles>
+    <!--
+      Activated automatically on Apple Silicon (arm64) hosts.
+      Overrides javafx.classifier so that `mvn javafx:run` and plain
+      `mvn package` use the arm64 native JavaFX libraries instead of x86_64.
+      Eclipse M2E uses an x86_64 JVM (Rosetta) and will NOT activate this
+      profile, keeping javafx.classifier="mac" for the Eclipse/M2E context.
+    -->
+    <profile>
+      <id>mac-aarch64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <javafx.classifier>mac-aarch64</javafx.classifier>
+      </properties>
+    </profile>
+
     <!--
       eclipse-bundle profile: activated manually with -Peclipse-bundle.
       Adds the platform-specific (mac) classified JavaFX JARs so that
@@ -105,6 +163,62 @@
   </profiles>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <!--
+          M2E lifecycle mapping — invisible to Maven CLI; only read by Eclipse M2E.
+          Fixes "Plugin execution not covered by lifecycle configuration" errors:
+          M2E tries to bind every plugin execution to an Eclipse incremental
+          build step.  javafx-maven-plugin and maven-shade-plugin have no M2E
+          connector, so we tell M2E to ignore their executions entirely.
+          (The "N problems building effective model" error is fixed separately
+          by using classified JavaFX deps in <dependencies>; see above.)
+        -->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+
+                <!-- javafx-maven-plugin: no M2E connector exists; ignore all goals -->
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.openjfx</groupId>
+                    <artifactId>javafx-maven-plugin</artifactId>
+                    <versionRange>[0.0.1,)</versionRange>
+                    <goals>
+                      <goal>run</goal>
+                      <goal>debug</goal>
+                      <goal>jlink</goal>
+                      <goal>jimage</goal>
+                      <goal>jpackage</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action><ignore /></action>
+                </pluginExecution>
+
+                <!-- maven-shade-plugin: package-phase only; skip inside Eclipse -->
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <versionRange>[0.0.1,)</versionRange>
+                    <goals>
+                      <goal>shade</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action><ignore /></action>
+                </pluginExecution>
+
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

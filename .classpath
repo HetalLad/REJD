@@ -37,4 +37,13 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="output" path="target/classes"/>
+	<!-- JavaFX 17 — added directly so Eclipse JDT resolves JavaFX types without
+	     depending on M2E's broken javafx-controls POM resolution.
+	     These entries are IGNORED by mvn compile / mvn package — only Eclipse reads .classpath. -->
+	<classpathentry kind="lib" path="/Users/hetallad/.m2/repository/org/openjfx/javafx-base/17.0.10/javafx-base-17.0.10-mac-aarch64.jar"/>
+	<classpathentry kind="lib" path="/Users/hetallad/.m2/repository/org/openjfx/javafx-controls/17.0.10/javafx-controls-17.0.10-mac-aarch64.jar"/>
+	<classpathentry kind="lib" path="/Users/hetallad/.m2/repository/org/openjfx/javafx-graphics/17.0.10/javafx-graphics-17.0.10-mac-aarch64.jar"/>
+	<classpathentry kind="lib" path="/Users/hetallad/.m2/repository/org/openjfx/javafx-fxml/17.0.10/javafx-fxml-17.0.10-mac-aarch64.jar"/>
+	<classpathentry kind="lib" path="/Users/hetallad/.m2/repository/org/openjfx/javafx-swing/17.0.10/javafx-swing-17.0.10-mac-aarch64.jar"/>
+	<classpathentry kind="lib" path="/Users/hetallad/.m2/repository/org/openjfx/javafx-web/17.0.10/javafx-web-17.0.10-mac-aarch64.jar"/>
 </classpath>
