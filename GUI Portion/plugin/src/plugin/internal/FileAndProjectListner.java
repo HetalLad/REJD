@@ -1,6 +1,7 @@
 package plugin.internal;
 
-import gwu.rejd.gui.ClassDiagramView;
+import gwu.rejd.notes.NotePreloadCache;
+import gwu.rejd.notes.NoteRepository;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -18,6 +19,8 @@ import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 
 import java.nio.file.Path;
+import java.util.List;
+import gwu.rejd.notes.NoteModel;
 
 public class FileAndProjectListner implements ISelectionListener, IResourceChangeListener {
 
@@ -64,10 +67,11 @@ public class FileAndProjectListner implements ISelectionListener, IResourceChang
             if (eclipsePath == null) continue;
             Path projectPath = eclipsePath.toFile().toPath();
 
-            // Load notes from disk and push into the live WebView on the JavaFX thread.
-            // loadNotesIntoLiveView() is a no-op if no diagram has been rendered yet;
-            // the notes will be loaded from disk automatically at the next renderGraph() call.
-            ClassDiagramView.loadNotesIntoLiveView(projectPath);
+            // Pre-load notes from disk into the in-memory cache.
+            // RejdDiagramView reads from NotePreloadCache the next time a diagram
+            // is rendered, so no JavaFX call is needed here.
+            List<NoteModel> notes = NoteRepository.load(projectPath);
+            NotePreloadCache.put(projectPath, notes);
         }
     }
 }
