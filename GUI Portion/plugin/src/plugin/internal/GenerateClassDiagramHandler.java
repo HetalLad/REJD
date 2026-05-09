@@ -1,5 +1,13 @@
+/*
+File Name: GenerateClassDiagramHandler.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file implements the context menu option to generate class diagrams.
+*/
+
+// Package info
 package plugin.internal;
 
+// Import statements
 import plugin.ui.RejdDiagramView;
 import plugin.ui.actions.GenerateClassDiagramAction;
 
