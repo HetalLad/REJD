@@ -1,5 +1,13 @@
+/*
+File Name: GenerateSequenceDiagramHandler.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file implements the context menu option to generate sequence diagram.
+*/
+
+// Package info
 package plugin.internal;
 
+// Import statements
 import gwu.rejd.extractor.MultiFileProjectLoader;
 import gwu.rejd.model.MethodModel;
 import gwu.rejd.model.ProjectModel;
@@ -122,8 +130,7 @@ public class GenerateSequenceDiagramHandler extends AbstractHandler {
         return null;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
+    // Helper Methods
     private Path resolveSingleJavaFile(Object element) {
         if (element instanceof ICompilationUnit cu) {
             org.eclipse.core.runtime.IPath loc = cu.getResource().getLocation();
