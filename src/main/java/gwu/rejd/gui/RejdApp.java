@@ -1,3 +1,10 @@
+/*
+ * File Name: RejdApp.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: Main JavaFX application used for loading Java files,
+ * generating UML diagrams, and managing the desktop UI.
+ */
+
 package gwu.rejd.gui;
 
 import gwu.rejd.extractor.MultiFileProjectLoader;
@@ -58,7 +65,7 @@ public class RejdApp extends Application {
         ClassDiagramView classDiagramView = new ClassDiagramView();
         classDiagramController = new ClassDiagramController(classDiagramView);
 
-        // Class diagram tab
+        // Class diagram UI
         scopeComboBox = new ComboBox<>();
         scopeComboBox.setPrefWidth(300);
         scopeComboBox.setOnAction(event -> {
@@ -81,7 +88,7 @@ public class RejdApp extends Application {
         classDiagramTab.setClosable(false);
         classDiagramTab.setContent(diagramPane);
 
-        // Sequence diagram tab 
+        // Sequence diagram UI
         seqImageView = new ImageView();
         seqImageView.setPreserveRatio(true);
         seqImageView.setSmooth(true);
@@ -106,7 +113,7 @@ public class RejdApp extends Application {
 
         tabPane = new TabPane(classDiagramTab, sequenceTab);
 
-        // Left panel 
+        // Left-side file explorer panel
         Button openFolderBtn = new Button("Open Folder");
         Button addFilesBtn   = new Button("Add Files");
         Button clearBtn      = new Button("Clear");
@@ -177,7 +184,7 @@ public class RejdApp extends Application {
         leftPanel.setPrefWidth(220);
         leftPanel.setMinWidth(160);
 
-        // Root layout 
+        // Main application layout 
         SplitPane splitPane = new SplitPane(leftPanel, tabPane);
         splitPane.setDividerPositions(0.2);
 
@@ -187,7 +194,7 @@ public class RejdApp extends Application {
         stage.show();
     }
 
-    // File loading 
+    // File/folder loading helpers 
     private void openFolder() {
         DirectoryChooser dc = new DirectoryChooser();
         dc.setTitle("Open Java Package Folder (non-recursive)");
@@ -235,8 +242,9 @@ public class RejdApp extends Application {
         renderClassDiagramAsync(all.stream().map(File::toPath).toList());
     }
 
-    // Class diagram 
+    // Class diagram generation 
     private void renderClassDiagramAsync(List<Path> paths) {
+        // Run parsing/rendering off the JavaFX UI thread
         new Thread(() -> {
             try {
                 ProjectModel model = loader.loadProject("project", paths);
@@ -261,7 +269,7 @@ public class RejdApp extends Application {
         }, "rejd-class-gen").start();
     }
 
-    // Sequence diagram 
+    // Sequence diagram generation
     private void generateSequenceDiagramAsync(Path javaPath) {
         try {
             ProjectModel model = loader.loadProject("project", List.of(javaPath));
@@ -273,6 +281,7 @@ public class RejdApp extends Application {
                 return;
             }
 
+            // Let the user choose which method to visualize
             Optional<MethodEntry> chosen = pickMethod(methods);
             if (!chosen.isPresent()) return;
 
@@ -302,7 +311,7 @@ public class RejdApp extends Application {
         }
     }
 
-    // Helpers 
+    // Utility/helper methods 
     private List<MethodEntry> collectMethods(ProjectModel model) {
         List<MethodEntry> entries = new ArrayList<>();
         for (TypeModel type : model.getTypesByFqn().values()) {
