@@ -1,3 +1,10 @@
+/*
+ * File Name: SimpleGraphGenerator.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: Generates JSON graph data used by the browser-based
+ * class diagram view.
+ */
+
 package gwu.rejd.generator;
 
 import gwu.rejd.model.FieldModel;
@@ -15,11 +22,13 @@ import java.util.stream.Collectors;
 
 public class SimpleGraphGenerator {
 
+	// Builds the node and edge JSON used by simple-diagram.html
 	public String generate(ProjectModel projectModel, List<RelationshipModel> relationships) {
 	    StringBuilder sb = new StringBuilder();
 	    sb.append("{\"nodes\":[");
 
 	    boolean first = true;
+		// Track project types so external dependencies can be added separately
 	    Set<String> internal = new HashSet<>();
 
 	    for (TypeModel type : projectModel.getTypesByFqn().values()) {
@@ -38,6 +47,7 @@ public class SimpleGraphGenerator {
 	          .append("}");
 	    }
 
+		// Add external targets as lightweight nodes
 	    Set<String> externalAdded = new HashSet<>();
 	    for (RelationshipModel rel : relationships) {
 	        String target = sanitize(simpleName(rel.targetName()));
@@ -55,6 +65,7 @@ public class SimpleGraphGenerator {
 
 	    sb.append("],\"edges\":[");
 
+		// Add relationship edges
 	    boolean firstEdge = true;
 	    for (RelationshipModel rel : relationships) {
 	        String source = sanitize(simpleName(rel.sourceFqn()));
@@ -82,6 +93,7 @@ public class SimpleGraphGenerator {
 	    return sb.toString();
 	}
 
+	// Builds the field/method text shown inside each node
     private String buildMembers(TypeModel type) {
         StringBuilder sb = new StringBuilder();
 
@@ -130,6 +142,7 @@ public class SimpleGraphGenerator {
         return lastDot >= 0 ? value.substring(lastDot + 1) : value;
     }
 
+	// Keeps ids safe for SVG/HTML usage
     private String sanitize(String value) {
         return value.replace("$", "_").replace(".", "_").replace(" ", "_");
     }
