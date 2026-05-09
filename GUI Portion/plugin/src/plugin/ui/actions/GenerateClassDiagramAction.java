@@ -1,5 +1,13 @@
+/*
+File Name: GenerateClassDiagramAction.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: Implements the action after clicking 'Generate Class Diagram' from the context menu
+*/
+
+// Package info
 package plugin.ui.actions;
 
+// Import statements
 import plugin.ui.RejdDiagramView;
 
 import org.eclipse.core.resources.IFile;
@@ -70,12 +78,11 @@ public class GenerateClassDiagramAction implements IObjectActionDelegate {
 
     /**
      * Resolves the Java source root from any of the supported selection types.
-     * Prefers src/main/java → src → project root.
      */
     public static File resolveSourceDir(Object element) {
         IProject project = null;
 
-        // ── Java model types (Package Explorer) ──────────────────────────────
+        // Java model types (Package Explorer)
         if (element instanceof ICompilationUnit cu) {
             // Single file → use its parent folder (the package directory)
             org.eclipse.core.runtime.IPath loc = cu.getResource().getLocation();
@@ -91,7 +98,7 @@ public class GenerateClassDiagramAction implements IObjectActionDelegate {
         } else if (element instanceof IJavaProject jp) {
             project = jp.getProject();
         }
-        // ── Resource types (Project Explorer / Navigator) ─────────────────────
+        // Resource types 
         else if (element instanceof IFile f) {
             // Single file resource → use its parent folder
             org.eclipse.core.runtime.IPath loc = f.getLocation();
@@ -102,7 +109,6 @@ public class GenerateClassDiagramAction implements IObjectActionDelegate {
 
         if (project == null || !project.isOpen()) return null;
 
-        // Fallback for project-level selections: prefer src/main/java → src → root
         IFolder srcMain = project.getFolder("src/main/java");
         if (srcMain.exists()) return srcMain.getLocation().toFile();
 
