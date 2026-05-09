@@ -1,5 +1,13 @@
+/*
+Filename: MultiFileProjectLoader.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file handles file handling.
+*/
+
+// Package info
 package gwu.rejd.extractor;
 
+// Import statements
 import gwu.rejd.model.PackageNode;
 import gwu.rejd.model.ProjectModel;
 import gwu.rejd.model.TypeModel;
@@ -19,8 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+/**
+* Public class handles loading and handling a project and its files.
+*/
 public class MultiFileProjectLoader {
-
+    // To load the project
     public ProjectModel loadProject(String projectId, Path rootDirectory) throws IOException {
         try (Stream<Path> pathStream = Files.walk(rootDirectory)) {
             List<Path> javaFiles = pathStream
@@ -31,6 +42,7 @@ public class MultiFileProjectLoader {
         }
     }
 
+    // To load the project 
     public ProjectModel loadProject(String projectId, List<Path> javaFiles) throws IOException {
         ProjectModelBuilder builder = new ProjectModelBuilder();
 
@@ -69,11 +81,13 @@ public class MultiFileProjectLoader {
         );
     }
 
+    // To parse the file
     public CompilationUnit parseFile(Path javaFile) throws IOException {
         String source = Files.readString(javaFile, StandardCharsets.UTF_8);
         return parseCompilationUnit(source);
     }
 
+    // To parse the compilation unit.
     private CompilationUnit parseCompilationUnit(String source) {
         ASTParser parser = ASTParser.newParser(AST.getJLSLatest());
         parser.setKind(ASTParser.K_COMPILATION_UNIT);
@@ -91,6 +105,7 @@ public class MultiFileProjectLoader {
         return (CompilationUnit) parser.createAST(null);
     }
 
+    // Adds a package to the package tree
     private void addToPackageTree(PackageNode root, String packageName, String typeFqn) {
         PackageNode node = root;
 
