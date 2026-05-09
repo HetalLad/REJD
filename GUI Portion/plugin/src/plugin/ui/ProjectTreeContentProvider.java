@@ -1,3 +1,10 @@
+/*
+ * File Name: ProjectTreeContentProvider.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: This Builds the package/type tree displayed
+ * in the Eclipse project explorer view.
+ */
+
 package plugin.ui;
 
 import gwu.rejd.model.PackageNode;
