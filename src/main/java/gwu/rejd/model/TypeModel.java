@@ -1,10 +1,21 @@
+/*
+File Name: TypeModel.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file describes the type model class
+*/
+
+// Package info
 package gwu.rejd.model;
 
+// Import Statements
 import gwu.rejd.model.enums.TypeKind;
 import gwu.rejd.model.enums.Visibility;
 
 import java.util.*;
 
+/**
+* TypeModel class describes the TypeModel object.
+*/
 public final class TypeModel {
   private final String fqn;
   private final String simpleName;
