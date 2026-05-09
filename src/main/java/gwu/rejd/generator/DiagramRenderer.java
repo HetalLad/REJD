@@ -1,3 +1,10 @@
+/*
+ * File Name: DiagramRenderer.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: Handles rendering PlantUML source strings
+ * into PNG diagram images.
+ */
+
 package gwu.rejd.generator;
 
 import net.sourceforge.plantuml.SourceStringReader;
@@ -7,14 +14,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
 
+/**
+ * Utility class for converting generated PlantUML
+ * text into diagram image files.
+ */
 public class DiagramRenderer {
 
     /**
-     * Renders a PlantUML diagram string to a PNG file at the given path.
-     *
-     * @param plantUmlString valid PlantUML source (e.g. from PlantUmlClassDiagramGenerator)
-     * @param outputPath     destination path for the generated PNG
-     * @throws IOException if the file cannot be written or PlantUML rendering fails
+     * Renders the generated PlantUML text as a PNG diagram.
      */
     public void render(String plantUmlString, Path outputPath) throws IOException {
         try (OutputStream out = new FileOutputStream(outputPath.toFile())) {
