@@ -2,7 +2,10 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <!-- CSS -->
   <style>
+
+	/* Basic HTML and Body styling */  
     html, body {
       margin: 0;
       padding: 0;
@@ -13,6 +16,7 @@
       background: #eef1f6;
     }
 
+	/* Canvas styling */    
     #canvas {
       width: 100%;
       height: 100%;
@@ -24,6 +28,7 @@
       background-size: 24px 24px;
     }
 
+	/* Status styling */    
     #status {
       position: absolute;
       top: 14px;
@@ -38,6 +43,7 @@
       box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     }
 
+	/* Legend styling */    
     #legend {
       position: absolute;
       bottom: 18px;
@@ -54,6 +60,8 @@
       flex-direction: column;
       gap: 5px;
     }
+
+	/* Legend item styling */  
     .legend-item {
       display: flex;
       align-items: center;
@@ -66,6 +74,7 @@
       flex-shrink: 0;
     }
 
+	/* Basic svg styling */  
     svg {
       width: 100%;
       height: 100%;
@@ -73,6 +82,7 @@
       cursor: grab;
     }
 
+	/* Node styling */  
     .node-shadow {
       fill: rgba(0,0,0,0.10);
       rx: 14;
@@ -122,7 +132,7 @@
       font-weight: 700;
     }
 
-    /* ── Phase 4: Reply threads ───────────────────────── */
+    /* Reply threads styling */
     .reply-thread {
       margin-top: 10px;
       margin-left: 12px;
@@ -210,6 +220,7 @@
       stroke: #999;
     }
 
+	/* 'Add Note' context menu styling */  
     .contextMenu {
       background-color: #ffffff;
       border: 1px solid #cccccc;
@@ -235,6 +246,7 @@
       background-color: #ececec;
     }
 
+	/* Note Creation dialog styling */  
     .noteDialog {
       display: none;
       position: absolute;
@@ -281,6 +293,7 @@
       gap: 8px;
     }
 
+	/* Note buttons styling */  
     .noteBtn {
       border: none;
       border-radius: 8px;
@@ -303,6 +316,7 @@
       opacity: 0.92;
     }
 
+	/* Note badges styling */  
     .note-badge {
       fill: #6c63ff;
       stroke: #ffffff;
@@ -344,6 +358,7 @@
 	  cursor: context-menu;
 	}
 
+	/* Object floating styling */  
 	.floating-note-panel {
 	  position: absolute;
 	  width: 260px;
@@ -405,6 +420,7 @@
 	  line-height: 1.5;
 	}
 
+	/* Note Pannel styling */  
 	.note-panel-toolbar {
 	  display: flex;
 	  justify-content: space-between;
@@ -456,10 +472,12 @@
   </style>
 </head>
 <body>
+  <!-- Context Menus -->
   <div class="contextMenu" id="contextMenu">
     <div class="contextMenuItem" id="addNoteMenuItem">Add Note</div>
   </div>
 
+  <!-- Note Dialog -->	
   <div class="noteDialog" id="noteDialog">
     <div class="noteDialogTitle">Create Note</div>
     <div class="noteDialogMeta" id="noteDialogMeta"></div>
@@ -468,15 +486,20 @@
       class="noteInput"
       placeholder="Enter note content here..."
     ></textarea>
+	<!-- Note Dialog Actions -->  
     <div class="noteDialogActions">
       <button class="noteBtn noteBtnCancel" id="cancelNoteBtn" type="button">Cancel</button>
       <button class="noteBtn noteBtnSave" id="saveNoteBtn" type="button">Save</button>
     </div>
   </div>
 
+  <!-- Canvas of the diagram -->
   <div id="canvas">
+
+	<!-- Status -->
     <div id="status">Rendered successfully. Drag nodes. Ctrl + wheel zoom.</div>
 
+	<!-- Legend -->  
     <div id="legend">
       <div class="legend-item"><div class="legend-swatch" style="background:#E8E4F0;border:1px solid #ccc"></div><span style="color:#2A2040">Class</span></div>
       <div class="legend-item"><div class="legend-swatch" style="background:#FFDAB9;border:1px solid #ccc"></div><span style="color:#3A2A0A">Abstract Class</span></div>
@@ -484,6 +507,7 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#4A2E6B"></div><span style="color:#4A2E6B">Enumeration</span></div>
     </div>
 
+	<!-- SVG Elements -->
     <svg id="svg" viewBox="0 0 2400 1600">
       <defs>
         <marker id="arrow-solid" markerWidth="14" markerHeight="14" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse">
@@ -507,12 +531,15 @@
   </div>
 
   <script>
+	// Zoom Settings
     let currentZoom = 1.0;
     let currentAuthor = "Unknown Author";
 
+	// Node and note dialog settings
     let activeNodeId = null;
     let noteDialogAnchor = { x: 0, y: 0 };
 
+	// Data structers for notes and positions
 	const notesByNode = {};
 	const savedPositionsByNode = {};
 	const panelPositionsByNode = {};
@@ -522,42 +549,51 @@
     let lastRenderedGraph = null;
 	
 	const GENERAL_NOTE_ID = "General Notes";
-	
+
+	// Creates General Note Ids
 	function createGeneralNoteId() {
 	  return GENERAL_NOTE_ID + "::" + generateId();
 	}
 
+	// Checks if an id is a general note id
 	function isGeneralNoteId(id) {
 	  return id === GENERAL_NOTE_ID || String(id || '').startsWith(GENERAL_NOTE_ID + "::");
 	}
-	
+
+	// Checks if an id is an edge note id
 	function isEdgeNoteId(id) {
 	  return String(id || '').startsWith('edge::');
 	}
 
+	// Component display name getter
 	function displayNameForComponent(id) {
 	  if (isGeneralNoteId(id)) return 'General Notes';
 	  if (isEdgeNoteId(id)) return 'Association Note';
 	  return id;
 	}
 
+	// Add Note Custom Menu JS
     const customMenu = document.getElementById('contextMenu');
     const addNoteMenuItem = document.getElementById('addNoteMenuItem');
 
+	// Note Dialog
     const noteDialog = document.getElementById('noteDialog');
     const noteInput = document.getElementById('noteInput');
     const noteDialogMeta = document.getElementById('noteDialogMeta');
     const saveNoteBtn = document.getElementById('saveNoteBtn');
     const cancelNoteBtn = document.getElementById('cancelNoteBtn');
 
+	// Current note author setter
     function setCurrentAuthor(name) {
       currentAuthor = name && name.trim() ? name.trim() : "Unknown Author";
     }
 
+	// Current user setter
     function setCurrentUser(name) {
       setCurrentAuthor(name);
     }
 
+	// Adds Note badge
     function addNoteBadge(nodeId) {
       const nodeEl = document.querySelector('.node[data-id="' + nodeId + '"]');
       if (!nodeEl) return;
@@ -572,7 +608,6 @@
       g.setAttribute('transform', 'translate(' + (nodeWidth - 10) + ', -10)');
       g.style.cursor = 'pointer';
 
-      // Speech bubble path (20 wide x 18 tall, tail at bottom-left)
       const bubble = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       bubble.setAttribute('d', 'M 0,13 L 0,3 Q 0,0 3,0 L 17,0 Q 20,0 20,3 L 20,11 Q 20,14 17,14 L 8,14 L 4,18 L 5,14 L 3,14 Q 0,14 0,11 Z');
       bubble.setAttribute('fill', '#6c63ff');
@@ -589,6 +624,7 @@
       nodeEl.appendChild(g);
     }
 
+	// Removes the Note badge
     function removeNoteBadge(nodeId) {
       const nodeEl = document.querySelector('.node[data-id="' + nodeId + '"]');
       if (!nodeEl) return;
@@ -596,10 +632,12 @@
       if (badge) badge.remove();
     }
 
+	// Status setter
     function setStatus(msg) {
       document.getElementById('status').innerText = msg;
     }
 
+	// Zoom Setter
     function setZoom(scale) {
       currentZoom = scale;
       const viewport = document.getElementById('viewport');
@@ -608,12 +646,14 @@
       viewport.setAttribute('transform', 'translate(' + panX + ',' + panY + ') scale(' + currentZoom + ')');
     }
 
+	// Background Setter
     function setBackground(color) {
       document.body.style.background = color;
       var canvas = document.getElementById('canvas');
       if (canvas) canvas.style.background = color;
     }
 
+	// To show the context menu
     function showContextMenu(x, y, nodeId) {
       activeNodeId = nodeId;
       noteDialogAnchor = { x, y };
@@ -624,10 +664,12 @@
       customMenu.style.left = x + "px";
     }
 
+	// To close the context menu
     function hideContextMenu() {
       customMenu.style.display = "none";
     }
 
+	// To show the note dialog
     function showNoteDialog() {
       if (!activeNodeId) return;
 
@@ -646,10 +688,13 @@
       noteInput.focus();
     }
 
+	// To close the note dialog
     function hideNoteDialog() {
       noteDialog.style.display = "none";
     }
-	
+
+	// Position Helpers
+	  
 	function screenToSvgPoint(clientX, clientY) {
 	  const svg = document.getElementById('svg');
 	  const pt = svg.createSVGPoint();
@@ -711,12 +756,12 @@
 	  };
 	}
 
-    // ── Phase 4 + 5 helpers ───────────────────────────────────────
-
+	// Generate ids
     function generateId() {
       return Math.random().toString(36).substr(2, 9) + '_' + Date.now();
     }
 
+	// To format timestamps
     function formatTimestamp(date) {
       return date.toLocaleString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric',
@@ -724,6 +769,7 @@
       });
     }
 
+	// To set up the CallBridge
     function callBridge(method) {
       var args = Array.prototype.slice.call(arguments, 1);
       try {
@@ -735,6 +781,7 @@
       }
     }
 
+	// To save notes
     function saveNote() {
       if (!activeNodeId) return;
 
@@ -772,6 +819,7 @@
       openNotePanel(activeNodeId);
     }
 
+	// To submit replies
 	function submitReply(nodeId, noteIndex, parentReplyId, text) {
 	  var notes = notesByNode[nodeId];
 	  if (!notes || !notes[noteIndex]) return;
@@ -803,6 +851,7 @@
 	  if (panel) renderNotePanelContent(panel, nodeId, noteIndex);
 	}
 
+	// To delete notes
     function deleteNote(nodeId, noteIndex) {
       var notes = notesByNode[nodeId];
       if (!notes || !notes[noteIndex]) return;
@@ -817,6 +866,7 @@
       if (lastRenderedGraph) renderGraph(lastRenderedGraph);
     }
 
+	// To delete replies
 	function deleteReply(nodeId, noteIndex, replyId) {
 	  var notes = notesByNode[nodeId];
 	  if (!notes || !notes[noteIndex]) return;
@@ -838,7 +888,8 @@
 
 	  if (lastRenderedGraph) renderGraph(lastRenderedGraph);
 	}
-	
+
+	// To make general note position persist
 	function persistGeneralNotePosition(nodeId, x, y) {
 	  if (!isGeneralNoteId(nodeId)) return;
 
@@ -852,9 +903,10 @@
 	  });
 	}
 
-    // Phase 5: called by Java on diagram open with the persisted notes array
+    // Persistance helper methods
+
+	// For notes
 	function loadNotes(data) {
-	  // Always refresh the JS note cache from Java persistence.
 	  Object.keys(notesByNode).forEach(function(key) {
 	    delete notesByNode[key];
 	  });
@@ -888,7 +940,8 @@
 	    }
 	  });
 	}
-	
+
+	// For positions
 	function loadPositions(data) {
 	  Object.keys(savedPositionsByNode).forEach(function(key) {
 	    delete savedPositionsByNode[key];
@@ -906,6 +959,7 @@
 	  if (lastRenderedGraph) renderGraph(lastRenderedGraph);
 	}
 
+	// To hide notes
     function hideNotes() {
       document.querySelectorAll('.note-badge-icon, .note-badge, .note-badge-text').forEach(
         function(el) { el.style.display = 'none'; });
@@ -913,13 +967,15 @@
         function(el) { el.style.display = 'none'; });
     }
 
+	// To show notes
     function showNotes() {
       document.querySelectorAll('.note-badge-icon, .note-badge, .note-badge-text').forEach(
         function(el) { el.style.display = ''; });
       document.querySelectorAll('.floating-note-panel').forEach(
         function(el) { el.style.display = 'block'; });
     }
-	
+
+	// Helper to find reply by id
 	function findReplyById(replies, replyId) {
 	  if (!replies || !replyId) return null;
 
@@ -937,6 +993,7 @@
 	  return null;
 	}
 
+	// Helper to check if something has replies
 	function hasActiveReplies(replies) {
 	  if (!replies) return false;
 
@@ -955,6 +1012,7 @@
 	  return false;
 	}
 
+	// To render the replies
 	function renderRepliesHtml(replies, depth) {
 	  if (!replies || replies.length === 0) return '';
 
@@ -993,7 +1051,8 @@
 
 	  return html;
 	}
-	
+
+	// To render the note pannel context
     function renderNotePanelContent(panel, nodeId, noteIndex) {
       var notes = notesByNode[nodeId];
       if (!notes || notes.length === 0) return;
@@ -1004,18 +1063,15 @@
 
       var body = panel.querySelector('.floating-note-body');
 
-      // ── Note body ──────────────────────────────────────────────
       var noteBodyHtml = note.isDeleted
         ? '<div class="reply-deleted">[deleted]</div>'
         : '<div>' + escapeHtml(note.text || note.content || '') + '</div>';
 
-      // ── Reply thread ───────────────────────────────────────────
 	  var repliesHtml = '';
 	  if (note.replies && note.replies.length > 0) {
 	    repliesHtml = '<div class="reply-thread">' + renderRepliesHtml(note.replies, 0) + '</div>';
 	  }
 
-      // ── Action buttons ─────────────────────────────────────────
 	  var canDelNote = !note.isDeleted &&
 	  				   sameUser(note.author, currentAuthor) &&
 	                   !hasActiveReplies(note.replies);
@@ -1049,13 +1105,11 @@
 
       body.innerHTML = navHtml + noteBodyHtml + repliesHtml + metaHtml + actionsHtml;
 
-      // ── Wire nav buttons ───────────────────────────────────────
       var prevBtn = body.querySelector('.prev-note-btn');
       var nextBtn = body.querySelector('.next-note-btn');
       prevBtn.addEventListener('click', function(e) { e.stopPropagation(); renderNotePanelContent(panel, nodeId, safeIndex - 1); });
       nextBtn.addEventListener('click', function(e) { e.stopPropagation(); renderNotePanelContent(panel, nodeId, safeIndex + 1); });
 
-	  // ── Wire Reply button ──────────────────────────────────────
 	  var replyBtn = body.querySelector('.main-note-reply-btn');
 	  if (replyBtn) {
 	    replyBtn.addEventListener('click', function(e) {
@@ -1068,7 +1122,6 @@
 	    });
 	  }
 
-	  // ── Wire direct reply Send / Cancel ─────────────────────────
 	  var replyArea = document.getElementById(replyInputId);
 	  if (replyArea) {
 	    replyArea.querySelector('.reply-send-btn').addEventListener('click', function(e) {
@@ -1089,13 +1142,11 @@
 	    });
 	  }
 
-      // ── Wire Delete note ──────────────────────────────────────
       var delNoteBtn = body.querySelector('.note-delete-btn');
       if (delNoteBtn) {
         delNoteBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteNote(nodeId, safeIndex); });
       }
 
-	  // ── Wire Delete reply buttons ──────────────────────────────
 	  body.querySelectorAll('.reply-delete-btn').forEach(function(btn) {
 	    btn.addEventListener('click', function(e) {
 	      e.stopPropagation();
@@ -1103,7 +1154,6 @@
 	    });
 	  });
 
-	  // ── Wire Reply-to-reply buttons ────────────────────────────
 	  body.querySelectorAll('.reply-to-reply-btn').forEach(function(btn) {
 	    btn.addEventListener('click', function(e) {
 	      e.preventDefault();
@@ -1121,7 +1171,6 @@
 	    });
 	  });
 
-	  // ── Wire nested reply Send buttons ─────────────────────────
 	  body.querySelectorAll('.nested-reply-send-btn').forEach(function(btn) {
 	    btn.addEventListener('click', function(e) {
 	      e.stopPropagation();
@@ -1140,7 +1189,6 @@
 	    });
 	  });
 
-	  // ── Wire nested reply Cancel buttons ───────────────────────
 	  body.querySelectorAll('.nested-reply-cancel-btn').forEach(function(btn) {
 	    btn.addEventListener('click', function(e) {
 	      e.stopPropagation();
@@ -1207,6 +1255,7 @@
 	  });
 	}
 
+	// Helper to bring the panel to the front
     function bringPanelToFront(panel) {
       const panels = document.querySelectorAll(".floating-note-panel");
       let maxZ = 2600;
@@ -1217,6 +1266,7 @@
       panel.style.zIndex = String(maxZ + 1);
     }
 
+	// Helper to make the pannel draggable
     function makePanelDraggable(panel, handle, nodeId) {
       let isDragging = false;
       let offsetX = 0;
@@ -1254,19 +1304,21 @@
         isDragging = false;
       });
     }
-
+	
     function escapeHtml(text) {
       return String(text)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
     }
-	
+
+	// Helper to check if two users are the same
 	function sameUser(a, b) {
 	  return String(a || '').trim().toLowerCase() ===
 	         String(b || '').trim().toLowerCase();
 	}
 
+	// Event listners to add functionality to the buttons like add note, save note, cancel note
     addNoteMenuItem.addEventListener("click", function(event) {
       event.stopPropagation();
       showNoteDialog();
@@ -1282,14 +1334,17 @@
       hideNoteDialog();
     });
 
+	// Event listner to close the context menu
     window.addEventListener("click", function() {
       hideContextMenu();
     });
 
+	// Event listner for the note dialog
     noteDialog.addEventListener("click", function(event) {
       event.stopPropagation();
     });
 
+	// Event listner for the custom Menu
     customMenu.addEventListener("click", function(event) {
       event.stopPropagation();
     });
