@@ -1,7 +1,8 @@
 /*
 File Name: TypeModel.java
 Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
-Description: The file describes the type model class
+Description: The file Represents a parsed Java type such as a class,
+interface, enum, or annotation.
 */
 
 // Package info
@@ -14,19 +15,20 @@ import gwu.rejd.model.enums.Visibility;
 import java.util.*;
 
 /**
-* TypeModel class describes the TypeModel object.
-*/
+ * This is a Immutable model used to store type-level
+ * information extracted from the AST.
+ */
 public final class TypeModel {
-  private final String fqn;
-  private final String simpleName;
-  private final String packageName;
-  private final TypeKind kind;
+  private final String fqn; // Fully qualified name (example: com.app.UserService)
+  private final String simpleName;  // Simple class/interface name
+  private final String packageName; // Package the type belongs to
+  private final TypeKind kind; // Class, interface, enum, annotation, etc.
   private final Visibility visibility;
-  private final Set<String> modifiers;     // "static", "abstract", etc.
-  private final List<String> annotations;  // "@Override", etc.
-  private final String superclass;         // may be null
-  private final List<String> interfaces;   // strings for now
-  private final List<FieldModel> fields;
+  private final Set<String> modifiers;     // Stores modifiers like static, abstract, final, etc.
+  private final List<String> annotations;  // Stores annotations found on the type
+  private final String superclass;         // Parent class if inheritance exists
+  private final List<String> interfaces;   // Implemented interfaces
+  private final List<FieldModel> fields;    // Parsed fields and methods belonging to this type
   private final List<MethodModel> methods;
 
   public TypeModel(
@@ -44,9 +46,13 @@ public final class TypeModel {
   ) {
     this.fqn = Objects.requireNonNull(fqn);
     this.simpleName = Objects.requireNonNull(simpleName);
+
+    // This is Default to empty package for unnamed/default package cases
     this.packageName = packageName == null ? "" : packageName;
     this.kind = Objects.requireNonNull(kind);
     this.visibility = Objects.requireNonNull(visibility);
+
+    // These are defensive copies prevent accidental external modification
     this.modifiers = Collections.unmodifiableSet(new LinkedHashSet<>(modifiers == null ? Set.of() : modifiers));
     this.annotations = Collections.unmodifiableList(new ArrayList<>(annotations == null ? List.of() : annotations));
     this.superclass = superclass;
