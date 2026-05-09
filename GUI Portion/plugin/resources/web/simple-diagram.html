@@ -1349,6 +1349,7 @@
       event.stopPropagation();
     });
 
+	// Helpers used for sizing nodes and formatting labels
     function estimateNodeHeight(lines) {
       const titleHeight = 28;
       const paddingTop = 16;
@@ -1363,6 +1364,7 @@
 	  return text.length > maxChars ? text.substring(0, maxChars - 3) + "..." : text;
 	}
 
+	// Applies UML-style line markers based on the relationship type
     function applyEdgeStyle(kind, line) {
       line.removeAttribute('stroke-dasharray');
       line.removeAttribute('marker-start');
@@ -1451,7 +1453,8 @@
         y: cy + dy * scale
       };
     }
-	
+
+	// Redraws note badges that belong to relationship/edge notes
 	function renderAssociationNoteBadges(nodes) {
 	  const viewport = document.getElementById('viewport');
 
@@ -1528,6 +1531,7 @@
       return { stereotype: null, headerColor: '#E8E4F0', textColor: '#2A2040', italic: false };
     }
 
+	// Main render function for drawing nodes, edges, labels, notes, and drag behavior
     function renderGraph(graph) {
       try {
         lastRenderedGraph = graph;
@@ -1710,6 +1714,7 @@
           viewport.appendChild(g);
         });
 
+		// Recalculates edge positions when nodes move or the graph is redrawn
         function updateEdges() {
 		  const edgeEls = viewport.querySelectorAll('.edge-line, .edge-hitbox');
           edgeEls.forEach(function(edge) {
@@ -1742,6 +1747,7 @@
             }
           });
 
+		  // Adds node interactions like expand/collapse, dragging, and right-click notes
           viewport.querySelectorAll('.node').forEach(function(nodeEl) {
             const id = nodeEl.getAttribute('data-id');
             const n = nodes[id];
@@ -1859,7 +1865,7 @@
         viewport.dataset.panY = 0;
         setZoom(currentZoom);
 
-        // ── Ghosted nodes: components removed from diagram but with notes ──
+        // Ghosted nodes: components removed from diagram but with notes 
         var currentIds = {};
         graph.nodes.forEach(function(n) { currentIds[n.id] = true; });
         var ghostX = 100;
@@ -1868,8 +1874,8 @@
 		Object.keys(notesByNode).forEach(function(ghostId) {
 		  if (currentIds[ghostId]) return; // still in diagram
 
-		  // Do NOT render missing association/edge notes as removed boxes.
-		  // If the edge is outside the current package view, hide it.
+		  // Not rendering missing association/edge notes as removed boxes.
+		  // If the edge is outside the current package view, we hide it.
 		  if (isEdgeNoteId(ghostId)) return;
 
 		  var activeGhostNotes = notesByNode[ghostId].filter(function(n) { return !n.isDeleted; });
@@ -2016,9 +2022,7 @@
       }
     });
 
-    // Export the SVG diagram to a PNG data URL.
-    // Called by the Eclipse plugin via browser.execute("exportToPng(true)").
-    // Result is delivered asynchronously to window.javaExportComplete(dataUrl).
+    // Draws currently open note panels onto the exported PNG
 	
 	function drawOpenNotePanelsToCanvas(ctx, canvasW, canvasH) {
 	  var svg = document.getElementById('svg');
@@ -2068,7 +2072,7 @@
 	  });
 	}
 	
-	
+	// Converts the current SVG diagram into a PNG for Eclipse export
     function exportToPng(includeNotes) {
       try {
         if (!includeNotes) hideNotes();
@@ -2204,6 +2208,7 @@
     // General notes
     const canvas = document.getElementById('canvas');
 
+	// Allows right-clicking empty canvas space to create a general note
 	canvas.addEventListener('contextmenu', function(e) {
 	  if (e.target.closest('.node') ||
 	      e.target.closest('.edge-line') ||
