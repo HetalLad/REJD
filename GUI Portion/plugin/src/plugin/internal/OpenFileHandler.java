@@ -1,5 +1,13 @@
+/*
+File Name: OpenFileHandler.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file implements the file opening methods.
+*/
+
+// Package info
 package plugin.internal;
 
+// Import statements
 import gwu.rejd.extractor.MultiFileProjectLoader;
 import gwu.rejd.model.MethodModel;
 import gwu.rejd.model.ProjectModel;
@@ -39,8 +47,7 @@ public class OpenFileHandler extends AbstractHandler {
     public Object execute(ExecutionEvent event) throws ExecutionException {
         Shell shell = HandlerUtil.getActiveShell(event);
         IWorkbenchPage page = HandlerUtil.getActiveWorkbenchWindow(event).getActivePage();
-
-        // 1. Pick .java files via native SWT dialog
+        
         FileDialog fd = new FileDialog(shell, SWT.OPEN | SWT.MULTI);
         fd.setText("Open Java File(s)");
         fd.setFilterExtensions(new String[]{"*.java", "*.*"});
@@ -54,7 +61,6 @@ public class OpenFileHandler extends AbstractHandler {
         List<Path> javaPaths = new ArrayList<>();
         for (String name : names) javaPaths.add(Paths.get(filterPath, name));
 
-        // 2. Ask which diagram type via native SWT dialog
         int choice = new MessageDialog(shell, "REJD \u2014 Diagram Type", null,
                 "What type of diagram do you want to generate?",
                 MessageDialog.QUESTION,
@@ -78,8 +84,7 @@ public class OpenFileHandler extends AbstractHandler {
         return null;
     }
 
-    // ── Sequence diagram helper ─────────────────────────────────────────────
-
+    // Sequence diagram helper methods
     private void generateSequenceDiagram(Shell shell, RejdDiagramView view, Path javaPath) {
         try {
             MultiFileProjectLoader loader = new MultiFileProjectLoader();
@@ -99,8 +104,7 @@ public class OpenFileHandler extends AbstractHandler {
         }
     }
 
-    // ── Shared helpers ──────────────────────────────────────────────────────
-
+    // Helper methods
     private List<MethodEntry> collectMethods(ProjectModel model) {
         List<MethodEntry> entries = new ArrayList<>();
         for (TypeModel type : model.getTypesByFqn().values()) {
