@@ -1,7 +1,17 @@
+/*
+File Name: PackageNode.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file describes the package nodes.
+*/
+
+// Package info
 package gwu.rejd.model;
 
 import java.util.*;
 
+/**
+* Public class describes the PackageNode.
+*/
 public final class PackageNode {
   private final String name; // segment name (e.g., "util"), root = ""
   private final Map<String, PackageNode> children = new LinkedHashMap<>();
