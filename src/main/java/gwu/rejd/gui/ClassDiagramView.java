@@ -1,3 +1,8 @@
+/*
+Filename: ClassDiagramView.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: Implements the Class Diagram view for the plugin.
+*/
 package gwu.rejd.gui;
 
 import com.google.gson.Gson;
@@ -38,33 +43,23 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+* Implements the UML Class Diagram for the running program.
+*/
 public class ClassDiagramView extends BorderPane {
-
-    // ---------------------------------------------------------------
-    // Fields
-    // ---------------------------------------------------------------
-
     private final WebView  webView      = new WebView();
     private double         zoomLevel    = 1.0;
     private final Button   exportButton = new Button("Export");
     private String currentDiagramTitle = "Class Diagram";
 
-    /** In-memory mirror of the persisted notes list. */
     private final List<NoteModel> notes = new ArrayList<>();
-
-    /** Root of the project used for .rejd/rejd-notes.json */
     private Path projectRoot = Paths.get("").toAbsolutePath();
-
-    /** CSS colour passed by the Eclipse host to match the shell theme (e.g. "rgb(240,240,240)"). */
     private String eclipseBgColor = null;
 
-    /** Set to true once the diagram HTML page has fully loaded (Worker.State.SUCCEEDED). */
     private boolean pageLoaded = false;
 
-    /** Holds a renderGraph JSON call that arrived before the page was ready. */
     private String pendingGraphJson = null;
 
-    /** Guard so the one-time page-load listener is only registered once. */
     private boolean pageListenerRegistered = false;
 
     /**
@@ -82,10 +77,7 @@ public class ClassDiagramView extends BorderPane {
      */
     private final NotesBridge bridge = new NotesBridge();
 
-    // ---------------------------------------------------------------
     // Constructor
-    // ---------------------------------------------------------------
-
     public ClassDiagramView() {
         setCenter(webView);
         exportButton.setDisable(true);
@@ -94,7 +86,7 @@ public class ClassDiagramView extends BorderPane {
         webView.getEngine().setJavaScriptEnabled(true);
         webView.setContextMenuEnabled(false);
 
-        // Right-click → show context menu for the clicked node
+        // Right Click Context Menu
         webView.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 try {
@@ -123,13 +115,13 @@ public class ClassDiagramView extends BorderPane {
                         engine.executeScript("hideNoteDialog();");
                     }
                 } catch (Exception e) {
-                    // Diagram page not loaded yet — ignore
+                    // pass
                 }
                 event.consume();
             }
         });
 
-        // Ctrl + scroll → zoom
+        // Zoom control
         webView.addEventFilter(ScrollEvent.SCROLL, event -> {
             if (event.isControlDown()) {
                 double delta = event.getDeltaY() > 0 ? 0.1 : -0.1;
@@ -140,29 +132,22 @@ public class ClassDiagramView extends BorderPane {
         });
     }
 
-    // ---------------------------------------------------------------
-    // Public API
-    // ---------------------------------------------------------------
-
+    // Export button
     public Button getExportButton() {
         return exportButton;
     }
-    
+
+    // Setter for the diagram title
     public void setDiagramTitle(String title) {
         this.currentDiagramTitle = title != null ? title : "Class Diagram";
     }
 
-    /** Called by the Eclipse plugin to point this view at a specific project. */
+    // To link the view to a project
     public void setProjectRoot(Path root) {
         this.projectRoot = root != null ? root : Paths.get("").toAbsolutePath();
     }
 
-    /**
-     * Loads notes for {@code projectRoot} from disk and injects them into the
-     * live WebView via {@code loadNotes()}.  Safe to call from any thread —
-     * the executeScript is dispatched onto the JavaFX application thread.
-     * No-op if no WebView has rendered a diagram yet.
-     */
+    // Loads notes from disk and injects them into the live WebView. 
     public static void loadNotesIntoLiveView(Path projectRoot) {
         WebEngine engine = liveEngine;
         if (engine == null) return;
@@ -174,16 +159,15 @@ public class ClassDiagramView extends BorderPane {
         );
     }
 
+    // To render the graph
     public void renderGraph(String graphJson) {
         WebEngine engine = webView.getEngine();
 
         if (pageLoaded) {
-            // Page already ready — execute JS immediately
             executeRender(engine, graphJson);
             return;
         }
 
-        // Store the latest pending JSON (replaces any earlier pending call)
         pendingGraphJson = graphJson;
 
         // Load the HTML page once and register a one-shot load listener
@@ -191,9 +175,6 @@ public class ClassDiagramView extends BorderPane {
             pageListenerRegistered = true;
 
             // Read the HTML as a string so we can use loadContent().
-            // WebView's internal WebKit cannot load bundleresource:// (OSGi) or jar:// URLs
-            // directly — it only supports http/https/file/data.  loadContent() bypasses
-            // that restriction by injecting the content directly into the engine.
             java.net.URL htmlUrl = getClass().getClassLoader()
                     .getResource("web/simple-diagram.html");
             System.out.println("REJD: HTML resource URL = " + htmlUrl);
@@ -213,29 +194,28 @@ public class ClassDiagramView extends BorderPane {
                 return;
             }
 
-            // loadContent() fires SUCCEEDED once when the injected HTML is ready
             engine.loadContent(htmlContent, "text/html");
 
             engine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
                 if (newState != javafx.concurrent.Worker.State.SUCCEEDED) return;
-                if (pageLoaded) return;   // guard: process first SUCCEEDED only
+                if (pageLoaded) return;  
                 pageLoaded = true;
                 System.out.println("REJD: page SUCCEEDED — injecting bridge and rendering");
                 try {
-                    // 1. Publish engine for live note updates from the Eclipse plugin
+                    // Publish engine for live note updates from the Eclipse plugin
                     liveEngine = engine;
 
-                    // 2. Inject Java↔JS bridge
+                    // Inject Java↔JS bridge
                     JSObject window = (JSObject) engine.executeScript("window");
                     window.setMember("javaBridge", bridge);
 
-                    // 3. Identify current user
+                    // Identify current user
                     String user = UserContext.getCurrentUser();
                     if (user != null) {
                         engine.executeScript("setCurrentAuthor('" + escapeJs(user) + "');");
                     }
 
-                    // 4. Load persisted notes
+                    // Load persisted notes
                     List<NoteModel> loaded = NoteRepository.load(projectRoot);
                     if (loaded.isEmpty()) loaded = NotePreloadCache.get(projectRoot);
                     notes.clear();
@@ -244,14 +224,12 @@ public class ClassDiagramView extends BorderPane {
                         engine.executeScript("loadNotes(" + gson.toJson(notes) + ");");
                     }
 
-                    // 5. Replay any pending render call
+                    // Replay any pending render call
                     if (pendingGraphJson != null) {
                         executeRender(engine, pendingGraphJson);
                         pendingGraphJson = null;
                     }
                 } catch (Exception e) {
-                    // Log but do NOT call engine.loadContent() here — that would
-                    // retrigger SUCCEEDED and create an infinite loop.
                     System.err.println("REJD ERROR in page load listener: " + e);
                     e.printStackTrace();
                 }
@@ -259,7 +237,7 @@ public class ClassDiagramView extends BorderPane {
         }
     }
 
-    /** Executes the actual renderGraph JS call and post-render steps. Must run on FX thread. */
+    // Executes the actual renderGraph JS call and post-render steps. Must run on FX thread. 
     private void executeRender(WebEngine engine, String graphJson) {
         try {
             System.out.println("REJD: calling JS renderGraph(), json length=" + graphJson.length());
@@ -276,6 +254,7 @@ public class ClassDiagramView extends BorderPane {
         }
     }
 
+    // Clears the content
     public void clear() {
         webView.getEngine().loadContent(
             "<html><body style='font-family: Arial; padding: 16px;'>No diagram loaded.</body></html>"
@@ -298,9 +277,6 @@ public class ClassDiagramView extends BorderPane {
     /**
      * Renders a sequence diagram PNG inside the WebView, using a plain HTML wrapper.
      * Used by the Eclipse plugin in place of a separate SWT ImageView.
-     *
-     * @param pngPath     path to the generated PNG file
-     * @param bgCssColor  CSS colour for the page background, or {@code null} for white
      */
     public void renderSequenceDiagram(Path pngPath, String bgCssColor) {
         String bg = bgCssColor != null ? bgCssColor : (eclipseBgColor != null ? eclipseBgColor : "#ffffff");
@@ -322,9 +298,7 @@ public class ClassDiagramView extends BorderPane {
 
     /**
      * Captures a snapshot of the current WebView content and delivers it to
-     * {@code callback} on the JavaFX thread.
-     * Hides/restores note badges around the snapshot when {@code includeNotes} is false.
-     * Safe to call from any thread.
+     * code callback on the JavaFX thread.
      */
     public void snapshotForExport(boolean includeNotes,
                                    java.util.function.Consumer<javafx.scene.image.WritableImage> callback) {
@@ -341,10 +315,7 @@ public class ClassDiagramView extends BorderPane {
         });
     }
 
-    // ---------------------------------------------------------------
-    // Export dialog
-    // ---------------------------------------------------------------
-
+    // Export dialog helper methods
     private void showExportDialog() {
         Stage dialog = new Stage();
         dialog.setTitle("Export Diagram");
@@ -402,7 +373,7 @@ public class ClassDiagramView extends BorderPane {
         dialog.setResizable(false);
         dialog.showAndWait();
     }
-
+    
     private void doExport(File file, boolean includeNotes) {
         WebEngine engine = webView.getEngine();
         try {
@@ -415,17 +386,13 @@ public class ClassDiagramView extends BorderPane {
         }
     }
 
-    // ---------------------------------------------------------------
-    // Inner class — JavaScript ↔ Java bridge for note persistence
-    // ---------------------------------------------------------------
-
     /**
      * Exposed to JS as window.javaBridge.
      * All public methods are callable from JavaScript via JSObject.
      */
     public class NotesBridge {
 
-        /** Called when a new note is created in JS. */
+        // Called when a new note is created in JS.
         public void saveNote(String noteJson) {
             NoteModel note = gson.fromJson(noteJson, NoteModel.class);
             if (note == null) return;
@@ -434,7 +401,7 @@ public class ClassDiagramView extends BorderPane {
             NoteRepository.save(projectRoot, notes);
         }
 
-        /** Called when a reply is submitted in JS. */
+        // Called when a reply is submitted in JS.
         public void saveReply(String noteId, String parentReplyId, String replyJson) {
             ReplyModel reply = gson.fromJson(replyJson, ReplyModel.class);
             if (reply == null) return;
@@ -461,7 +428,8 @@ public class ClassDiagramView extends BorderPane {
                 }
             }
         }
-        
+
+        // Helper to find the reply given an id and a list of replies.
         private ReplyModel findReplyById(List<ReplyModel> replies, String replyId) {
             if (replies == null || replyId == null || replyId.isBlank()) return null;
 
@@ -479,7 +447,7 @@ public class ClassDiagramView extends BorderPane {
             return null;
         }
 
-        /** Soft-deletes a note (sets isDeleted = true). */
+        // To delete a note
         public void deleteNote(String noteId) {
             for (NoteModel note : notes) {
                 if (noteId.equals(note.id)) {
@@ -490,7 +458,7 @@ public class ClassDiagramView extends BorderPane {
             }
         }
 
-        /** Soft-deletes a reply (sets isDeleted = true). */
+        // To delete a reply
         public void deleteReply(String noteId, String replyId) {
             for (NoteModel note : notes) {
                 if (noteId.equals(note.id)) {
@@ -504,11 +472,8 @@ public class ClassDiagramView extends BorderPane {
             }
         }
     }
-
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
-
+    
+    // Other HTML and JS helper methods
     private String escapeHtml(String text) {
         return text
             .replace("&", "&amp;")
