@@ -1,5 +1,13 @@
+/*
+File Name: ClassDiagramController.java
+Author: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: File implements the Class Diagram View.
+*/
+
+// Package info
 package gwu.rejd.gui;
 
+// Import Statements
 import gwu.rejd.extractor.RelationshipExtractor;
 import gwu.rejd.generator.DiagramRenderer;
 import gwu.rejd.generator.PlantUmlSequenceDiagramGenerator;
@@ -13,6 +21,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+/**
+* Implements the Class Diagram view on the plug-in.
+*/
 public class ClassDiagramController {
 
     private final RelationshipExtractor relationshipExtractor = new RelationshipExtractor();
@@ -24,28 +35,31 @@ public class ClassDiagramController {
     private ProjectModel currentProject;
     private DiagramScope currentScope = DiagramScope.entireProject();
 
+    // Constructor
     public ClassDiagramController(ClassDiagramView view) {
         this.view = view;
     }
 
+    // To render the project
     public void showProject(ProjectModel projectModel) {
         this.currentProject = projectModel;
         renderCurrentScope();
     }
 
-    /** Sets scope and re-renders only if a project is already loaded. */
+    // Sets scope and re-renders only if a project is already loaded.
     public void setScope(DiagramScope scope) {
         this.currentScope = scope != null ? scope : DiagramScope.entireProject();
         renderCurrentScope();
     }
 
-    /** Sets both project and scope atomically, then renders exactly once. */
+    // Sets both project and scope atomically, then renders exactly once.
     public void showProjectWithScope(ProjectModel projectModel, DiagramScope scope) {
         this.currentProject = projectModel;
         this.currentScope = scope != null ? scope : DiagramScope.entireProject();
         renderCurrentScope();
     }
 
+    // Renders the current diagram scope
     private void renderCurrentScope() {
         if (currentProject == null) {
             view.clear();
@@ -76,6 +90,7 @@ public class ClassDiagramController {
         return tmpPng;
     }
 
+    // Clears the canvas
     public void clear() {
         currentProject = null;
         currentScope = DiagramScope.entireProject();
