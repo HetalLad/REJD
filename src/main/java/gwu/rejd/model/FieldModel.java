@@ -1,9 +1,20 @@
+/*
+File Name: FieldModel.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file describes the field model.
+*/
+
+// Package info
 package gwu.rejd.model;
 
+// Import statements
 import gwu.rejd.model.enums.Visibility;
 
 import java.util.*;
 
+/**
+* Class that describes the FieldModel object
+*/
 public final class FieldModel {
   private final String name;
   private final String type;
