@@ -12,14 +12,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Provides a package/type tree from a {@link ProjectModel}.
- * Root elements are the top-level {@link PackageNode}s of the project.
- * Children of a node are its sub-packages followed by its declared types.
+ * This will build the package/type tree shown in the project explorer.
  */
 public class ProjectTreeContentProvider implements ITreeContentProvider {
 
     private ProjectModel model;
-    /** Maps each PackageNode to its fully-qualified package name (e.g. "gwu.rejd.model"). */
+    // This will keep track of full package names while the tree is being built
     private final Map<PackageNode, String> fullNames = new IdentityHashMap<>();
 
     @Override
@@ -71,8 +69,7 @@ public class ProjectTreeContentProvider implements ITreeContentProvider {
     }
 
     /**
-     * Returns the fully-qualified package name for {@code node}, or an empty string
-     * for the root node. Only valid after the tree has been populated.
+     * This is used by the label provider to display package names correctly.
      */
     public String getFullPackageName(PackageNode node) {
         return fullNames.getOrDefault(node, node.getName());
