@@ -1,9 +1,19 @@
+/*
+File Name: MethodModel.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file describes the method models.
+*/
+
+// Package info
 package gwu.rejd.model;
 
+// Import statements
 import gwu.rejd.model.enums.Visibility;
 
 import java.util.*;
 
+
+// Describes the method model.
 public final class MethodModel {
   private final String methodId;
   private final String name;
