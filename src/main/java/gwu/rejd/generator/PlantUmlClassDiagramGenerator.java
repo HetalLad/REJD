@@ -1,3 +1,10 @@
+/*
+ * File Name: PlantUmlClassDiagramGenerator.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: Generates PlantUML source text for class diagrams
+ * using parsed project types and relationships.
+ */
+
 package gwu.rejd.generator;
 
 import gwu.rejd.model.FieldModel;
@@ -14,6 +21,7 @@ import java.util.stream.Collectors;
 
 public class PlantUmlClassDiagramGenerator {
 
+    // Builds the full PlantUML class diagram text
     public String generate(ProjectModel projectModel, List<RelationshipModel> relationships) {
         StringBuilder sb = new StringBuilder();
 
@@ -30,6 +38,7 @@ public class PlantUmlClassDiagramGenerator {
         sb.append("skinparam ArrowColor #5B6470\n");
         sb.append("skinparam ArrowThickness 1.3\n\n");
 
+        // Diagram styling
         sb.append("skinparam class {\n");
         sb.append("  BackgroundColor #FFF9CC\n");
         sb.append("  BorderColor #C97B63\n");
@@ -52,10 +61,12 @@ public class PlantUmlClassDiagramGenerator {
         sb.append("hide empty fields\n");
         sb.append("hide empty methods\n\n");
 
+        // Add all parsed classes/interfaces/enums
         for (TypeModel type : projectModel.getTypesByFqn().values()) {
             sb.append(typeBlock(type)).append("\n\n");
         }
 
+        // Add UML relationships between types
         for (RelationshipModel rel : relationships) {
             sb.append(relationshipLine(rel)).append("\n");
         }
@@ -64,6 +75,7 @@ public class PlantUmlClassDiagramGenerator {
         return sb.toString();
     }
 
+    // Generates the PlantUML block for a single type
     private String typeBlock(TypeModel type) {
         StringBuilder sb = new StringBuilder();
 
@@ -128,6 +140,7 @@ public class PlantUmlClassDiagramGenerator {
                 .collect(Collectors.joining(", "));
     }
 
+    // Converts extracted relationships into PlantUML arrows
     private String relationshipLine(RelationshipModel rel) {
         String source = safeName(simpleName(rel.sourceFqn()));
         String target = safeName(simpleName(rel.targetName()));
@@ -166,6 +179,7 @@ public class PlantUmlClassDiagramGenerator {
         return lastDot >= 0 ? value.substring(lastDot + 1) : value;
     }
 
+    // Cleans names so they work safely in PlantUML
     private String safeName(String value) {
         return value.replace("$", "_").replace(".", "_");
     }
