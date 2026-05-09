@@ -10,11 +10,16 @@ package gwu.rejd.model;
 import java.util.*;
 
 /**
-* Public class describes the PackageNode.
-*/
+ * Immutable-style package tree node are used while
+ * building package navigation and diagram grouping.
+ */
 public final class PackageNode {
   private final String name; // segment name (e.g., "util"), root = ""
+
+  // Child package nodes are nested under this package
   private final Map<String, PackageNode> children = new LinkedHashMap<>();
+
+  // These are fully qualified names of types belonging to this package
   private final List<String> typeFqns = new ArrayList<>();
 
   public PackageNode(String name) {
@@ -25,10 +30,17 @@ public final class PackageNode {
   public Map<String, PackageNode> getChildren() { return Collections.unmodifiableMap(children); }
   public List<String> getTypeFqns() { return Collections.unmodifiableList(typeFqns); }
 
+  /**
+   * This Returns an existing child package if present,
+   * otherwise creates and stores a new one.
+   */
   public PackageNode getOrCreateChild(String segment) {
     return children.computeIfAbsent(segment, PackageNode::new);
   }
 
+   /**
+   * This adds a fully qualified type name to this package node.
+   */
   public void addType(String typeFqn) {
     typeFqns.add(typeFqn);
   }
