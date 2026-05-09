@@ -1,5 +1,13 @@
+/*
+File Name: StartupLogin.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: File to handle the project startup logic
+*/
+
+// Package info
 package plugin.internal;
 
+// Import statements
 import gwu.rejd.notes.NoteModel;
 
 import gwu.rejd.notes.NotePreloadCache;
@@ -24,6 +32,9 @@ import java.nio.file.Path;
 import java.util.List;
 import plugin.ui.RejdDiagramView;
 
+/**
+* The class to handle the startup logic of the program.
+*/
 public class StartupLogin implements IStartup {
 
     private static FileAndProjectListner listener;
