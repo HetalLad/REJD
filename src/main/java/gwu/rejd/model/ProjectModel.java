@@ -1,7 +1,18 @@
+/*
+File Name: ProjectpModel.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file describes an object to describe the projects.
+*/
+
+// Package info
 package gwu.rejd.model;
 
+// Import statements
 import java.util.*;
 
+/**
+Public class describes the projects.
+*/
 public final class ProjectModel {
   private final String projectId;
   private final String packageName;
