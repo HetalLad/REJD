@@ -1,3 +1,10 @@
+/*
+File Name: UserContext.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: Util File.
+*/
+
+// Package info
 package gwu.rejd.util;
 
 public final class TypeNameUtils {
