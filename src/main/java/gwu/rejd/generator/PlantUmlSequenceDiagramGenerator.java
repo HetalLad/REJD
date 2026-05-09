@@ -1,3 +1,10 @@
+/*
+ * File Name: PlantUmlSequenceDiagramGenerator.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: Generates PlantUML sequence diagrams by walking
+ * Java AST method calls and building participant interactions.
+ */
+
 package gwu.rejd.generator;
 
 import gwu.rejd.model.MethodModel;
@@ -17,18 +24,12 @@ public class PlantUmlSequenceDiagramGenerator {
 	private static final int MAX_CALL_DEPTH = 3;
 
     /**
-     * Generates a PlantUML sequence diagram for the method identified by {@code methodId}.
-     *
-     * @param projectModel the project model (used to locate the owning type and known types)
-     * @param cu           the CompilationUnit AST from which the method body is walked
-     * @param methodId     method identifier in the form {@code ownerFqn#name(ParamType,...):ReturnType}
-     *                     (constructors use {@code <init>} and no return suffix)
-     * @return valid PlantUML sequence diagram string
-     * @throws IllegalArgumentException if no matching method is found
-     */
+	 * Generates a PlantUML sequence diagram for the selected method.
+	 * Walks the AST to collect method calls and participant interactions.
+	 */
 	
     public String generate(ProjectModel projectModel, CompilationUnit cu, String methodId) {
-        // --- Locate the owning type simple name from the methodId ---
+        // Extract the owner type from the methodId
         int hash = methodId.indexOf('#');
         if (hash < 0) throw new IllegalArgumentException("Invalid methodId: " + methodId);
         String ownerFqn = methodId.substring(0, hash);
@@ -39,47 +40,47 @@ public class PlantUmlSequenceDiagramGenerator {
             throw new IllegalArgumentException("No TypeModel found for: " + ownerFqn);
         }
 
-        // Verify the methodId exists in the model
+        // Make sure the method exists in the parsed model
         boolean found = ownerType.getMethods().stream()
                 .anyMatch(m -> m.getMethodId().equals(methodId));
         if (!found) {
             throw new IllegalArgumentException("No MethodModel found for methodId: " + methodId);
         }
 
-        // --- Find the MethodDeclaration in the AST ---
+        // Find the matching MethodDeclaration in the AST
         MethodDeclaration targetDecl = findMethodDeclaration(cu, ownerFqn, methodId, projectModel);
         if (targetDecl == null || targetDecl.getBody() == null) {
             throw new IllegalArgumentException(
                     "MethodDeclaration not found or has no body for: " + methodId);
         }
 
-        // --- Build local variable map: varName -> declared base type ---
+        // Build a map of local variables and their declared types
         Map<String, String> localVars = new LinkedHashMap<>();
-        // Seed with method parameters first
+        // Seed with method parameters 
         for (Object p : targetDecl.parameters()) {
             SingleVariableDeclaration svd = (SingleVariableDeclaration) p;
             localVars.put(svd.getName().getIdentifier(), baseTypeName(svd.getType().toString()));
         }
-        // Then walk the body for local variable declarations
+        // Then collect local variables declared inside the method body
         LocalVarCollector varCollector = new LocalVarCollector();
         targetDecl.getBody().accept(varCollector);
         localVars.putAll(varCollector.varTypes);
 
-        // --- Collect calls from the method body ---
+        // Collect method calls from the AST
         CallCollector collector = new CallCollector();
         targetDecl.getBody().accept(collector);
 
-        // --- Build set of known simple names for callee resolution ---
+        // Used for resolving callees to known project types
         Set<String> knownSimpleNames = new LinkedHashSet<>();
         for (TypeModel t : projectModel.getTypesByFqn().values()) {
             knownSimpleNames.add(t.getSimpleName());
         }
 
-        // --- Emit PlantUML ---
+        // Build PlantUML output
         StringBuilder sb = new StringBuilder();
         sb.append("@startuml\n\n");
 
-        // Collect participants: caller, then all callees (User is emitted separately as an actor)
+        // Collect all participants involved in the sequence flow
         Set<String> participants = new LinkedHashSet<>();
         participants.add(callerSimple);
         for (CallRecord call : collector.calls) {
@@ -93,12 +94,12 @@ public class PlantUmlSequenceDiagramGenerator {
         }
         sb.append("\n");
 
-        // Entry call from User
+        // Simulated entry point into the sequence
         String entryMethodName = methodId.substring(hash + 1, methodId.indexOf('('));
         sb.append("User -> ").append(callerSimple).append(" : ").append(entryMethodName).append("()\n");
         sb.append("activate ").append(callerSimple).append("\n\n");
 
-     // Each collected call, including nested method calls when found in the same CompilationUnit
+     // Render nested method calls recursively
         emitCallsRecursive(
                 sb,
                 callerSimple,
@@ -115,10 +116,7 @@ public class PlantUmlSequenceDiagramGenerator {
         return sb.toString();
     }
 
-    // -------------------------------------------------------------------------
-    // AST visitor — collects MethodInvocation and ClassInstanceCreation nodes
-    // -------------------------------------------------------------------------
-
+    // AST visitors used for collecting method calls and local variables
     private static class CallRecord {
         final String rawCallee; // expression string as written in source
         final String label;     // display label for the arrow
@@ -152,7 +150,7 @@ public class PlantUmlSequenceDiagramGenerator {
         /**
          * preVisit is called unconditionally for every node in the AST,
          * regardless of what any visit() method returns. This guarantees
-         * full traversal into all nested blocks (if, for, try, etc.).
+         * full traversal into all nested blocks.
          */
         @Override
         public void preVisit(ASTNode node) {
@@ -170,9 +168,7 @@ public class PlantUmlSequenceDiagramGenerator {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    // Helper methods
 
     /**
      * Finds the MethodDeclaration in the CompilationUnit whose reconstructed
@@ -251,20 +247,20 @@ public class PlantUmlSequenceDiagramGenerator {
                                   Map<String, String> localVars, String callerSimple) {
         if (rawCallee == null || rawCallee.isBlank()) return null;
 
-        // "this" or implicit self-call
+        // Self-calls stay within the current participant
         if ("this".equals(rawCallee) || "super".equals(rawCallee)) return callerSimple;
 
-        // Local variable map — resolves e.g. "found" → "Optional", "book" → "Book"
+        // Resolve using locally declared variable types first
         if (localVars.containsKey(rawCallee)) return localVars.get(rawCallee);
 
         // Direct simple name match (static call or type name in the model)
         if (knownSimpleNames.contains(rawCallee)) return rawCallee;
 
-        // Capitalise first letter — covers field names matching a type (e.g. "library" → "Library")
+        // Capitalise first letter — covers field names matching a type
         String capitalised = Character.toUpperCase(rawCallee.charAt(0)) + rawCallee.substring(1);
         if (knownSimpleNames.contains(capitalised)) return capitalised;
 
-        // Qualified expression — take the last segment and try (e.g. "this.library" → "Library")
+        // Qualified expression — take the last segment and try 
         if (rawCallee.contains(".")) {
             String last = rawCallee.substring(rawCallee.lastIndexOf('.') + 1);
             if (localVars.containsKey(last)) return localVars.get(last);
