@@ -1,5 +1,13 @@
+/*
+Filename: Main.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The Driver for the ASTParser.
+*/
+
+// Package info
 package gwu.rejd;
 
+// Import Statements
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
@@ -20,22 +28,11 @@ import gwu.rejd.model.ProjectModel;
  *
  * Reads a Java source file, parses it with Eclipse JDT, and prints
  * a summary of the parsed model (package, imports, types) to stdout.
- *
- * Usage (Maven):
- *   mvn exec:java                                      <- uses src/samples/Sample.java
- *   mvn exec:java -Dexec.args="path/to/YourFile.java" <- custom input
- *
- * Usage (jar):
- *   java -cp ... gwu.rejd.Main [path/to/YourFile.java]
- *
- * For full diagram generation use the standalone GUI: mvn javafx:run
- * For the Eclipse plugin see: GUI Portion/plugin/
  */
 public class Main {
-
-    /** Default input if no argument is supplied. */
     private static final String DEFAULT_INPUT = "src/samples/Sample.java";
 
+    // Main method
     public static void main(String[] args) throws IOException {
         String inputPath = (args.length > 0) ? args[0] : DEFAULT_INPUT;
         Path filePath = Paths.get(inputPath).toAbsolutePath();
@@ -48,10 +45,10 @@ public class Main {
 
         System.out.println("Parsing : " + filePath);
 
-        // --- Read source ---
+        // Reading source
         String source = new String(Files.readAllBytes(filePath), StandardCharsets.UTF_8);
 
-        // --- Configure Eclipse JDT ASTParser ---
+        // Configuring Eclipse JDT ASTParser
         ASTParser parser = ASTParser.newParser(AST.getJLSLatest());
         parser.setKind(ASTParser.K_COMPILATION_UNIT);
 
@@ -66,13 +63,13 @@ public class Main {
         parser.setStatementsRecovery(true);
         parser.setBindingsRecovery(false);
 
-        // --- Parse ---
+        // Parsing the contents
         CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
         ProjectModelBuilder b = new ProjectModelBuilder();
         ProjectModel model = b.build("rejd-demo", cu);
 
-        // --- Print summary ---
+        // Print summary
         System.out.println("----- PROJECT MODEL -----");
         System.out.println("Package : " + model.getPackageName());
         System.out.println("Imports : " + model.getImports().size());
@@ -81,7 +78,7 @@ public class Main {
         model.getTypesByFqn().keySet().forEach(fqn -> System.out.println("  " + fqn));
         System.out.println("-------------------------");
 
-        // --- Print any parse errors/warnings ---
+        // Print any warnings and errors
         int errors = 0, warnings = 0;
         for (IProblem problem : cu.getProblems()) {
             String location = "Line " + problem.getSourceLineNumber();
