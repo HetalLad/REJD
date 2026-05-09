@@ -1,5 +1,13 @@
+/*
+File Name: FilAndProjectListner.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file implements the file and project selection listners.
+*/
+
+// Package info
 package plugin.internal;
 
+// Import statements
 import gwu.rejd.notes.NotePreloadCache;
 import gwu.rejd.notes.NoteRepository;
 
@@ -22,10 +30,12 @@ import java.nio.file.Path;
 import java.util.List;
 import gwu.rejd.notes.NoteModel;
 
+/**
+* Implements File and Project selection event listners.
+* Source: https://archive.eclipse.org/eclipse/downloads/documentation/2.0/html/plugins/org.eclipse.platform.doc.isv/reference/api/org/eclipse/ui/ISelectionListener.html
+*/
 public class FileAndProjectListner implements ISelectionListener, IResourceChangeListener {
-
-    // ── ISelectionListener ────────────────────────────────────────────────────
-
+    // ISelectionListener 
     @Override
     public void selectionChanged(IWorkbenchPart sourcePart, ISelection selection) {
         if (!(selection instanceof IStructuredSelection)) {
@@ -47,8 +57,7 @@ public class FileAndProjectListner implements ISelectionListener, IResourceChang
         }
     }
 
-    // ── IResourceChangeListener ───────────────────────────────────────────────
-
+    // IResourceChangeListener 
     @Override
     public void resourceChanged(IResourceChangeEvent event) {
         IResourceDelta delta = event.getDelta();
