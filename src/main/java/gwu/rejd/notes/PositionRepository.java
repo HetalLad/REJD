@@ -32,7 +32,7 @@ public class PositionRepository {
     private PositionRepository() {}
 
     /**
-     * Save all positions to {projectRoot}/.rejd/rrejd-positions.json.
+     * Save all positions to {projectRoot}/.rejd/rejd-positions.json.
      * Creates the .rejd folder if it does not exist.
      */
     public static void save(Path projectRoot, Map<String, PositionModel> positions) {
