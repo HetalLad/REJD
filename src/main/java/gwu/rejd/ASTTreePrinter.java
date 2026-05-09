@@ -1,3 +1,10 @@
+/*
+ * File Name: ASTTreePrinter.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: Walks the Eclipse JDT AST and prints a readable
+ * parse tree representation for debugging and analysis.
+ */
+
 package gwu.rejd;
 
 import org.eclipse.jdt.core.dom.*;
@@ -6,18 +13,10 @@ import java.util.List;
 import java.util.StringJoiner;
 
 /**
- * An ASTVisitor that prints a full indented parse tree to a StringBuilder.
- *
- * Strategy:
- * - preVisit() / postVisit() are called for EVERY node, making them ideal
- * for depth tracking and printing the raw tree.
- * - For key structural nodes (TypeDeclaration, MethodDeclaration, etc.) a
- * human-readable summary label is added (name, type, modifiers, etc.).
- * - All other nodes fall back to their simple class name.
- *
- * This gives a complete parse tree suitable for understanding the code
- * structure and as input for UML diagram generation.
+ * AST visitor used for printing a readable parse tree from
+ * the Eclipse JDT AST.
  */
+
 public class ASTTreePrinter extends ASTVisitor {
 
     private final StringBuilder out;
@@ -29,9 +28,7 @@ public class ASTTreePrinter extends ASTVisitor {
         this.cu = cu;
     }
 
-    // -------------------------------------------------------------------------
-    // Core: print every node via preVisit / postVisit
-    // -------------------------------------------------------------------------
+    // Core traversal logic
 
     @Override
     public void preVisit(ASTNode node) {
@@ -49,9 +46,7 @@ public class ASTTreePrinter extends ASTVisitor {
         depth--;
     }
 
-    // -------------------------------------------------------------------------
-    // Node description: return a readable label for each node type
-    // -------------------------------------------------------------------------
+    // Generates readable labels for AST nodes
 
     private String describeNode(ASTNode node) {
         if (node instanceof CompilationUnit) {
@@ -100,7 +95,7 @@ public class ASTTreePrinter extends ASTVisitor {
                     + (vdf.getInitializer() != null ? " = " + vdf.getInitializer() : "");
         }
 
-        // --- Statements ---
+        // Statement nodes
         if (node instanceof Block) {
             Block b = (Block) node;
             return "Block {" + b.statements().size() + " statements}";
@@ -176,7 +171,7 @@ public class ASTTreePrinter extends ASTVisitor {
             return "label " + ls.getLabel() + ":";
         }
 
-        // --- Annotations ---
+        // Annotation nodes
         if (node instanceof MarkerAnnotation) {
             MarkerAnnotation ma = (MarkerAnnotation) node;
             return "@" + ma.getTypeName();
@@ -190,7 +185,7 @@ public class ASTTreePrinter extends ASTVisitor {
             return "@" + sma.getTypeName() + "(" + sma.getValue() + ")";
         }
 
-        // --- Types ---
+        // Type nodes
         if (node instanceof SimpleType) {
             return "Type: " + ((SimpleType) node).getName().getFullyQualifiedName();
         }
@@ -207,7 +202,7 @@ public class ASTTreePrinter extends ASTVisitor {
             return "Type: " + node.toString();
         }
 
-        // --- Literals and names ---
+        // Literal/name nodes
         if (node instanceof SimpleName) {
             return "Name: " + ((SimpleName) node).getIdentifier();
         }
@@ -233,7 +228,7 @@ public class ASTTreePrinter extends ASTVisitor {
             return "CharLiteral: '" + ((CharacterLiteral) node).getEscapedValue() + "'";
         }
 
-        // --- Expressions ---
+        // Expression nodes
         if (node instanceof InfixExpression) {
             InfixExpression ie = (InfixExpression) node;
             return "InfixExpr: " + ie.getLeftOperand() + " " + ie.getOperator() + " " + ie.getRightOperand();
@@ -293,13 +288,11 @@ public class ASTTreePrinter extends ASTVisitor {
             return "Modifier: " + ((Modifier) node).getKeyword();
         }
 
-        // Fallback: use the class simple name
+        // Default fallback label
         return node.getClass().getSimpleName();
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers for key node types
-    // -------------------------------------------------------------------------
+    // Helper methods for common AST structures
 
     private String describeType(TypeDeclaration td) {
         String kind = td.isInterface() ? "Interface" : "Class";
@@ -359,9 +352,7 @@ public class ASTTreePrinter extends ASTVisitor {
         return "Field: " + (mods.isEmpty() ? "" : mods + " ") + type + " " + names;
     }
 
-    // -------------------------------------------------------------------------
-    // Utilities
-    // -------------------------------------------------------------------------
+    // Utility methods
 
     private void indent() {
         for (int i = 0; i < depth; i++) {
@@ -369,7 +360,7 @@ public class ASTTreePrinter extends ASTVisitor {
         }
     }
 
-    /** Build modifier string from int bitmask (e.g. "public static final"). */
+    // Converts modifier flags into readable text
     private String modString(int flags) {
         StringJoiner sj = new StringJoiner(" ");
         if (Modifier.isPublic(flags))
