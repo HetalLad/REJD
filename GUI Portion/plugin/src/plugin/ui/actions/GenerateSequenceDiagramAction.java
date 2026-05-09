@@ -1,5 +1,13 @@
+/*
+File Name: GenerateSequenceDiagramAction.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: Implements the action after clicking 'Generate Sequence Diagram' from the context menu
+*/
+
+// Package info
 package plugin.ui.actions;
 
+// Import Statements
 import gwu.rejd.extractor.MultiFileProjectLoader;
 import gwu.rejd.model.MethodModel;
 import gwu.rejd.model.ProjectModel;
@@ -66,7 +74,6 @@ public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
         // Try to resolve a single .java file first
         Path singleFile = resolveSingleJavaFile(element);
 
-        // Fall back: resolve the project source directory for multi-file loading
         File sourceDir = (singleFile == null)
                 ? GenerateClassDiagramAction.resolveSourceDir(element)
                 : null;
@@ -140,8 +147,6 @@ public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
         }, "rejd-seq-action").start();
     }
 
-    // ── Resolution helpers ────────────────────────────────────────────────────
-
     /** Returns the filesystem Path for a single selected .java file, or null. */
     private Path resolveSingleJavaFile(Object element) {
         if (element instanceof ICompilationUnit cu) {
@@ -155,15 +160,13 @@ public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
         return null;
     }
 
-    /**
-     * For whole-project mode: finds and parses the .java file that declares
-     * the type owning the chosen method, then returns its CompilationUnit.
-     */
+    // Helper methods
+    
     private CompilationUnit findCuForMethod(MultiFileProjectLoader loader,
                                              Path sourceRoot,
                                              MethodEntry chosen,
                                              ProjectModel model) {
-        // Extract the FQN from the methodId: "com.example.Foo#bar():void" → "com.example.Foo"
+        
         String fqn = chosen.methodId.contains("#")
                 ? chosen.methodId.substring(0, chosen.methodId.indexOf('#'))
                 : null;
@@ -172,7 +175,6 @@ public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
         TypeModel type = model.getTypesByFqn().get(fqn);
         if (type == null) return null;
 
-        // Convert FQN to relative file path, e.g. com/example/Foo.java
         String relativePath = fqn.replace('.', File.separatorChar) + ".java";
 
         try {
@@ -194,8 +196,6 @@ public class GenerateSequenceDiagramAction implements IObjectActionDelegate {
                     .collect(Collectors.toList());
         }
     }
-
-    // ── Method collection & picker ────────────────────────────────────────────
 
     private List<MethodEntry> collectMethods(ProjectModel model) {
         List<MethodEntry> entries = new ArrayList<>();
