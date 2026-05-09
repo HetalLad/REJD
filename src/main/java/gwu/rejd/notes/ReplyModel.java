@@ -1,5 +1,13 @@
+/*
+File Name: ReplyModel.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The ReplyModel is initialized here.
+*/
+
+// Package info
 package gwu.rejd.notes;
 
+// Import Statements
 import java.util.ArrayList;
 import java.util.List;
 
