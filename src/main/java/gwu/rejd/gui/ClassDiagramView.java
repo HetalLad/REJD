@@ -3,8 +3,11 @@ Filename: ClassDiagramView.java
 Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
 Description: Implements the Class Diagram view for the plugin.
 */
+
+// Package info
 package gwu.rejd.gui;
 
+// Import statements
 import com.google.gson.Gson;
 import gwu.rejd.notes.NoteModel;
 import gwu.rejd.notes.NotePreloadCache;
