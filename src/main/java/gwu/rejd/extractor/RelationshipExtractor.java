@@ -1,5 +1,13 @@
+/*
+Filename: RelationshipExtractor.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file extracts relationships within a project.
+*/
+
+// Package info
 package gwu.rejd.extractor;
 
+// Import statements
 import gwu.rejd.model.FieldModel;
 import gwu.rejd.model.MethodModel;
 import gwu.rejd.model.ParamModel;
@@ -13,8 +21,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+* Public class implements the ProjectModel relationship extractor.
+*/
 public class RelationshipExtractor {
-
+    // Extracting relationships into a list
     public List<RelationshipModel> extract(ProjectModel projectModel) {
         Set<RelationshipModel> relationships = new LinkedHashSet<>();
 
@@ -90,6 +101,7 @@ public class RelationshipExtractor {
         return new ArrayList<>(relationships);
     }
 
+    // To add the uses relation
     private void addUses(String sourceFqn,
                          String sourceSimple,
                          String typeName,
@@ -107,6 +119,7 @@ public class RelationshipExtractor {
         relationships.add(new RelationshipModel(sourceFqn, typeName, RelationshipKind.USES));
     }
 
+    // To extract the referenced types
     private Set<String> extractReferencedTypes(String type) {
         Set<String> result = new LinkedHashSet<>();
         if (type == null || type.isBlank()) return result;
@@ -137,6 +150,7 @@ public class RelationshipExtractor {
         return result;
     }
 
+    // Checks what the collection type is
     private boolean isCollectionLike(String type) {
         if (type == null) return false;
         String t = type.trim();
@@ -150,10 +164,12 @@ public class RelationshipExtractor {
         );
     }
 
+    // Checks if the type is array
     private boolean isArrayLike(String type) {
         return type != null && type.contains("[");
     }
 
+    // Checks if it's a container
     private boolean isContainerType(String typeName) {
         switch (typeName) {
             case "List":
@@ -175,12 +191,14 @@ public class RelationshipExtractor {
         }
     }
 
+    // Name modification
     private String simpleName(String typeName) {
         if (typeName == null || typeName.isBlank()) return "";
         int lastDot = typeName.lastIndexOf('.');
         return lastDot >= 0 ? typeName.substring(lastDot + 1).trim() : typeName.trim();
     }
 
+    // Checks if the datatype is primitive.
     private boolean isPrimitiveOrVoid(String typeName) {
         switch (typeName) {
             case "byte":
