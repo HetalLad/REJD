@@ -1,5 +1,13 @@
+/*
+Filename: ProjectModelFilter.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: Filters a project model based on the diagram scope
+*/
+
+// Package info
 package gwu.rejd.gui;
 
+// Import Statements
 import gwu.rejd.model.PackageNode;
 import gwu.rejd.model.ProjectModel;
 import gwu.rejd.model.TypeModel;
@@ -7,8 +15,11 @@ import gwu.rejd.model.TypeModel;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+Public class implements a filter for a ProjectModel based on a DiagramScope
+*/
 public class ProjectModelFilter {
-
+    // Filter method
     public ProjectModel filter(ProjectModel original, DiagramScope scope) {
         if (original == null || scope == null || scope.isEntireProject()) {
             return original;
@@ -34,6 +45,7 @@ public class ProjectModelFilter {
         );
     }
 
+    // To build the package tree
     private PackageNode buildPackageTree(Map<String, TypeModel> typesByFqn) {
         PackageNode root = new PackageNode("");
 
@@ -44,6 +56,7 @@ public class ProjectModelFilter {
         return root;
     }
 
+    // To add a package name to a package tree
     private void addToPackageTree(PackageNode root, String packageName, String typeFqn) {
         PackageNode node = root;
 
