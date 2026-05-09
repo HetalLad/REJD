@@ -1,5 +1,13 @@
+/*
+Filename: ProjectModelBuilder.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file handles building project models.
+*/
+
+// Package info
 package gwu.rejd.extractor;
 
+// Import statements
 import gwu.rejd.model.*;
 import gwu.rejd.model.enums.*;
 
@@ -7,13 +15,16 @@ import org.eclipse.jdt.core.dom.*;
 
 import java.util.*;
 
+/**
+* Public class builds the projet model out of a project.
+*/
 public final class ProjectModelBuilder {
-
+  // ProjectModel build method
   public ProjectModel build(String projectId, CompilationUnit cu) {
     String packageName =
         (cu.getPackage() != null) ? cu.getPackage().getName().getFullyQualifiedName() : "";
 
-    // This will grab all import statements from this file, including static and wildcard ones.
+    // To extract all import statements from this file, including static and wildcard ones.
     List<String> imports = new ArrayList<>();
     for (Object impObj : cu.imports()) {
       ImportDeclaration imp = (ImportDeclaration) impObj;
@@ -23,11 +34,11 @@ public final class ProjectModelBuilder {
       imports.add(name);
     }
 
-    // This will walk through the top-level types and build a map of FQN to TypeModel.
+    // To go through the top-level types and build a map of FQN to TypeModel.
     Map<String, TypeModel> typesByFqn = new LinkedHashMap<>();
     PackageNode root = new PackageNode("");
 
-    // Here we visit all top level ones in the current compilation note.
+    // To visit all top level ones in the current compilation note.
     for (Object t : cu.types()) {
       if (t instanceof TypeDeclaration) {
         TypeModel tm = buildTypeFromTypeDecl((TypeDeclaration) t, packageName, null, typesByFqn, root);
@@ -45,7 +56,6 @@ public final class ProjectModelBuilder {
   }
 
   // The main Type Builders.
-
   private TypeModel buildTypeFromTypeDecl(TypeDeclaration td, String packageName,
       String parentTypeFqn, Map<String, TypeModel> typesByFqn, PackageNode root) {
     String simple = td.getName().getIdentifier();
@@ -116,8 +126,7 @@ public final class ProjectModelBuilder {
     return new TypeModel(fqn, simple, packageName, TypeKind.ENUM, vis, mods, ann, null, interfaces, fields, methods);
   }
 
-  //  The current members.
-
+  //  The current members of the fields.
   private List<FieldModel> buildFields(FieldDeclaration fd) {
     Visibility vis = visibilityFromModifiers(fd.getModifiers());
     Set<String> mods = modifierKeywords(fd.getModifiers());
@@ -133,6 +142,7 @@ public final class ProjectModelBuilder {
     return out;
   }
 
+  // To build the methods
   private MethodModel buildMethod(String ownerTypeFqn, MethodDeclaration md) {
     Visibility vis = visibilityFromModifiers(md.getModifiers());
     Set<String> mods = modifierKeywords(md.getModifiers());
@@ -156,7 +166,6 @@ public final class ProjectModelBuilder {
   }
 
   //  Updated Helpers.
-
   private String buildTypeFqn(String packageName, String parentTypeFqn, String simpleName) {
     String base = (packageName == null || packageName.isBlank()) ? "" : packageName + ".";
     if (parentTypeFqn != null && !parentTypeFqn.isBlank()) {
@@ -165,6 +174,7 @@ public final class ProjectModelBuilder {
     return base + simpleName;
   }
 
+  // Adds the package name to the package tree
   private void addToPackageTree(PackageNode root, String packageName, String typeFqn) {
     PackageNode node = root;
     if (packageName != null && !packageName.isBlank()) {
@@ -175,7 +185,6 @@ public final class ProjectModelBuilder {
     node.addType(typeFqn);
   }
 
-  // Here we use the fully qualified name here to avoid a clash with our own enums package import.
   private Visibility visibilityFromModifiers(int flags) {
     if (org.eclipse.jdt.core.dom.Modifier.isPublic(flags)) return Visibility.PUBLIC;
     if (org.eclipse.jdt.core.dom.Modifier.isProtected(flags)) return Visibility.PROTECTED;
@@ -183,7 +192,6 @@ public final class ProjectModelBuilder {
     return Visibility.PACKAGE_PRIVATE;
   }
 
-  //We do the same here by fully qualifying Modifier to avoid the ambiguity.
   private Set<String> modifierKeywords(int flags) {
     Set<String> s = new LinkedHashSet<>();
     if (org.eclipse.jdt.core.dom.Modifier.isStatic(flags)) s.add("static");
@@ -197,6 +205,7 @@ public final class ProjectModelBuilder {
     return s;
   }
 
+  // For the member annotations
   private List<String> annotationStrings(List<?> modifiersAndAnnotations) {
     List<String> out = new ArrayList<>();
     for (Object o : modifiersAndAnnotations) {
@@ -212,7 +221,6 @@ public final class ProjectModelBuilder {
       String returnType,
       boolean isCtor
   ) {
-	// Finally we build a signature like: com.example.Foo.
     StringBuilder sb = new StringBuilder();
     sb.append(ownerTypeFqn).append("#").append(isCtor ? "<init>" : name).append("(");
     for (int i = 0; i < params.size(); i++) {
