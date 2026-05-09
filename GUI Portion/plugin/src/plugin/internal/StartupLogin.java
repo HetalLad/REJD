@@ -1,7 +1,7 @@
 /*
 File Name: StartupLogin.java
 Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
-Description: File to handle the project startup logic
+Description: File to handle the project startup logic.
 */
 
 // Package info
