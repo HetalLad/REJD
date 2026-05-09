@@ -1,3 +1,10 @@
+/*
+ * File Name: RejdDiagramView.java
+ * Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+ * Description: This is the Main Eclipse UI view responsible for rendering
+ * class diagrams, sequence diagrams, notes, and browser interactions.
+ */
+
 package plugin.ui;
 
 import com.google.gson.Gson;
@@ -54,62 +61,53 @@ import java.util.Map;
 import java.util.HashMap;
 
 /**
- * Eclipse ViewPart — package/type tree on the left, class diagram in a native
- * SWT Browser (WebKit on macOS, Edge on Windows, GTK WebKit on Linux) on the right.
- * No JavaFX required.
+ * Main Eclipse ViewPart used for displaying class and sequence diagrams
+ * inside an SWT Browser component.
  *
- * Features parity with the standalone ClassDiagramView:
- *   - Ctrl+scroll zoom (0.4× – 2.5×, persisted across renders)
- *   - Eclipse theme background colour injection
- *   - Notes (create / reply / delete) via BrowserFunction bridge
- *   - NotePreloadCache fallback when repository file is not yet written
- *   - Sequence diagram display with theme-aware background
- *   - Export PNG with optional notes, via JS canvas → base64 → Java
- *   - clear() resets the view to a placeholder
- *   - Right-click on nodes shows Add-Note context menu (handled in HTML JS)
- *   - Click outside context menu closes it (handled in HTML JS)
+ * Supports:
+ *  - Diagram rendering and zooming
+ *  - Notes and replies through the browser bridge
+ *  - Sequence diagram generation
+ *  - PNG export support
+ *  - Eclipse theme-aware backgrounds
  */
 public class RejdDiagramView extends ViewPart {
 
     public static final String ID = "plugin.ui.RejdDiagramView";
 
-    // ── SWT controls ──────────────────────────────────────────────────────────
+    // So these are the main SWT UI components
     private Button     exportBtn;
     private TreeViewer treeViewer;
     private Browser    browser;
 
-    // ── Project state ─────────────────────────────────────────────────────────
+    // These store currently loaded project information
     private volatile ProjectModel currentModel;
     private volatile File         currentSourceDir;
     private volatile List<Path>   currentJavaPaths;
     private ProjectTreeContentProvider treeContentProvider;
 
-    // ── Page-load tracking ────────────────────────────────────────────────────
-    /** True when the class-diagram HTML is fully loaded and ready for renderGraph(). */
+    // This handles Browser/page loading state
+    // This is true when the class-diagram HTML is fully loaded and ready for renderGraph().
     private boolean pageLoaded        = false;
-    /** Guards the ProgressAdapter so it only acts on class-HTML loads, not sequence HTML. */
+    // This guards the ProgressAdapter so it only acts on class-HTML loads, not sequence HTML.
     private boolean expectingClassHtml = false;
-    /** Graph JSON waiting to render once the class HTML finishes loading. */
+    // This Graph JSON waits to render once the class HTML finishes loading. 
     private String  pendingJson       = null;
-    /** Cached HTML string — read once from the classpath, reused on reload. */
+    // The Cached HTML string read once from the classpath, is reused on reload. 
     private String  cachedClassHtml   = null;
 
-    // ── Zoom & theme ──────────────────────────────────────────────────────────
-    /** Current zoom level applied via JS setZoom(). Range 0.4 – 2.5. */
+    // These handle the Zoom level + Eclipse theme settings
     private double zoomLevel     = 1.0;
-    /** CSS colour string (e.g. "rgb(240,240,240)") from the Eclipse IDE theme. */
     private String eclipseBgColor = null;
 
-    // ── Export ────────────────────────────────────────────────────────────────
+    // This handles the export.
     private volatile String pendingExportPath = null;
 
-    // ── Notes ─────────────────────────────────────────────────────────────────
+    // This is for the Notes and saved node positions.
     private final Gson gson = new Gson();
     private final List<NoteModel> notes = new ArrayList<>();
     private final Map<String, PositionModel> positions = new HashMap<>();
     private Path projectRoot = java.nio.file.Paths.get("").toAbsolutePath();
-
-    // ── ViewPart lifecycle ────────────────────────────────────────────────────
 
     @Override
     public void createPartControl(Composite parent) {
@@ -119,7 +117,6 @@ public class RejdDiagramView extends ViewPart {
         ((GridLayout) parent.getLayout()).marginHeight = 0;
         ((GridLayout) parent.getLayout()).verticalSpacing = 0;
 
-        // ── Top toolbar: Export PNG button ────────────────────────────────────
         Composite topBar = new Composite(parent, SWT.NONE);
         GridLayout topLayout = new GridLayout(1, false);
         topLayout.marginHeight = 3;
@@ -133,9 +130,9 @@ public class RejdDiagramView extends ViewPart {
         exportBtn.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false));
         exportBtn.addListener(SWT.Selection, e -> onExport());
 
-        // ── Full-width browser (fills all remaining space) ────────────────────
+        // This is for the Full-width browser (fills all remaining space) 
         // Tree viewer is still built for programmatic population; it is not
-        // rendered in the UI — users trigger generation via right-click or REJD menu.
+        // rendered in the UI as users trigger generation via right-click or REJD menu.
         treeContentProvider = new ProjectTreeContentProvider();
         Composite browserWrapper = new Composite(parent, SWT.NONE);
         browserWrapper.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -153,7 +150,7 @@ public class RejdDiagramView extends ViewPart {
         System.out.println("REJD: RejdDiagramView created, browser=" + browser);
     }
 
-    // ── Browser creation ──────────────────────────────────────────────────────
+    // Browser creation 
 
     private Browser createBrowser(Composite parent) {
         String os = System.getProperty("os.name", "").toLowerCase();
@@ -189,16 +186,15 @@ public class RejdDiagramView extends ViewPart {
         return b;
     }
 
-    // ── Browser setup — called once ───────────────────────────────────────────
+    // these are the Browser setup helpers
 
     /**
-     * Registers all BrowserFunctions on the Browser widget.
+     * these Registers all BrowserFunctions on the Browser widget.
      * BrowserFunctions are bound to the Browser instance and survive page navigations,
      * so they only need to be registered once.
      */
     private void registerBrowserFunctions() {
 
-        // PNG export callback — called from JS exportToPng() with a base64 data URL
         new BrowserFunction(browser, "javaExportComplete") {
             @Override public Object function(Object[] args) {
                 String dataUrl = (args != null && args.length > 0 && args[0] instanceof String)
@@ -225,7 +221,6 @@ public class RejdDiagramView extends ViewPart {
             }
         };
 
-        // Notes bridge — thin wrappers; window.javaBridge delegates to these
         new BrowserFunction(browser, "_jbSaveNote") {
             @Override public Object function(Object[] args) {
                 if (args == null || args.length == 0) return null;
@@ -319,9 +314,8 @@ public class RejdDiagramView extends ViewPart {
     }
 
     /**
-     * Registers the single ProgressAdapter that handles class-HTML post-load setup.
-     * The adapter is permanently registered but ignores loads where
-     * {@code expectingClassHtml} is false (e.g. sequence diagram HTML).
+     * Sets up browser listeners used after the diagram page finishes loading.
+     * Ignores sequence diagram pages and only runs for the main class diagram view.
      */
     private void setupBrowserListeners() {
         browser.addProgressListener(new ProgressAdapter() {
@@ -370,9 +364,9 @@ public class RejdDiagramView extends ViewPart {
     }
 
     /**
-     * Loads (or reloads) the class-diagram HTML into the browser.
+     * This loads (or reloads) the class-diagram HTML into the browser.
      * The HTML string is cached after the first classpath read.
-     * Safe to call multiple times — e.g., to return from a sequence view.
+     * It is safe to call multiple times, to return from a sequence view.
      */
     private void loadClassHtml() {
         if (cachedClassHtml == null) {
@@ -398,11 +392,11 @@ public class RejdDiagramView extends ViewPart {
         browser.setText(cachedClassHtml, true);
     }
 
-    // ── Render helpers ────────────────────────────────────────────────────────
+    // Render helpers
 
     /**
-     * Calls renderGraph() in the browser and applies zoom and Eclipse theme.
-     * Must be called on the SWT UI thread with pageLoaded == true.
+     * This Calls renderGraph() in the browser and applies zoom and Eclipse theme.
+     * It Must be called on the SWT UI thread with pageLoaded == true.
      */
     private void executeRender(String json) {
         System.out.println("REJD: renderGraph(), json length=" + json.length());
@@ -429,10 +423,10 @@ public class RejdDiagramView extends ViewPart {
         });
     }
 
-    // ── Notes ─────────────────────────────────────────────────────────────────
+    // Notes Part
 
     /**
-     * Loads notes from disk for the current projectRoot, falls back to
+     * This loads notes from disk for the current projectRoot, then falls back to
      * NotePreloadCache if the repository file does not exist yet, and injects
      * them into the page via loadNotes().
      */
@@ -464,12 +458,8 @@ public class RejdDiagramView extends ViewPart {
         }
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // Public API 
 
-    /**
-     * Stores the Eclipse IDE background colour (e.g. "rgb(240,240,240)") and
-     * applies it to the currently-loaded diagram page immediately if possible.
-     */
     public void setEclipseBackground(String cssColor) {
         this.eclipseBgColor = cssColor;
         if (pageLoaded && browser != null && !browser.isDisposed()) {
@@ -479,7 +469,7 @@ public class RejdDiagramView extends ViewPart {
     }
 
     /**
-     * Resets the view to a "no diagram loaded" placeholder and disables Export.
+     * This Resets the view to a "no diagram loaded" placeholder and disables Export.
      * Zoom level is also reset to 1.0.
      */
     public void clear() {
@@ -496,10 +486,6 @@ public class RejdDiagramView extends ViewPart {
         if (exportBtn != null && !exportBtn.isDisposed()) exportBtn.setEnabled(false);
     }
 
-    /**
-     * Walks {@code sourceDir} for .java files, builds a ProjectModel, populates
-     * the tree, and renders the full class diagram.
-     */
     public void generateClassDiagram(File sourceDir) {
         System.out.println("REJD: generateClassDiagram: " + sourceDir);
         new Thread(() -> {
@@ -544,7 +530,7 @@ public class RejdDiagramView extends ViewPart {
 
     /**
      * Generates a sequence diagram for the given method and shows it in the Browser.
-     * Embeds the PNG as a base64 data URL to avoid file:// security restrictions.
+     * Embeds the PNG as a base data URL to avoid file security restrictions.
      * Uses the Eclipse theme background if one has been set.
      */
     public void generateAndShowSequenceDiagram(ProjectModel model, CompilationUnit cu,
@@ -559,7 +545,7 @@ public class RejdDiagramView extends ViewPart {
                 String b64 = Base64.getEncoder().encodeToString(pngBytes);
                 String dataUrl = "data:image/png;base64," + b64;
 
-                // Use Eclipse theme colour if available, otherwise dark
+                // This uses Eclipse theme colour if available, otherwise dark
                 String bg = eclipseBgColor != null ? eclipseBgColor : "#1e1e2e";
 
                 Display.getDefault().asyncExec(() -> {
@@ -580,7 +566,7 @@ public class RejdDiagramView extends ViewPart {
         }, "rejd-seq-gen").start();
     }
 
-    // ── Tree context menu ─────────────────────────────────────────────────────
+    // Tree context menu
 
     private void buildTreeContextMenu() {
         if (treeViewer == null) return;   // tree not rendered in full-browser mode
@@ -609,15 +595,15 @@ public class RejdDiagramView extends ViewPart {
         Object sel = getTreeSelection();
 
         if (sel instanceof TypeModel type) {
-            // Single class selected — use just that type's source file
+            // Single class selected to use just that type's source file
             generateSequenceForType(type);
         } else {
-            // Package node, no selection, or project root — pick from all types
+            // Package node, no selection, or project root to pick from all types
             generateSequenceForProject();
         }
     }
 
-    /** Opens a method picker across ALL types in the currently loaded project model. */
+    // Opens a method picker across ALL types in the currently loaded project model. 
     private void generateSequenceForProject() {
         new Thread(() -> {
             List<MethodEntry> methods = collectMethods(currentModel);
@@ -630,7 +616,7 @@ public class RejdDiagramView extends ViewPart {
                 MethodEntry chosen = pickMethod(shell, methods);
                 if (chosen == null) return;
 
-                // Locate the source file for the chosen method's type
+                // This locates the source file for the chosen method's type
                 String fqn = chosen.methodId.contains("#")
                         ? chosen.methodId.substring(0, chosen.methodId.indexOf('#'))
                         : null;
@@ -678,8 +664,6 @@ public class RejdDiagramView extends ViewPart {
         return DiagramScope.entireProject();
     }
 
-    // ── Sequence from tree ────────────────────────────────────────────────────
-
     private void generateSequenceForType(TypeModel type) {
         Path sourcePath = findSourceFile(type);
         if (sourcePath == null) {
@@ -717,20 +701,16 @@ public class RejdDiagramView extends ViewPart {
                 .findFirst().orElse(null);
     }
 
-    // ── Graph building ────────────────────────────────────────────────────────
+    // Graph building
 
     /**
-     * Resolves the true project root from a source directory path.
-     * Walks up past common Maven/Gradle source layouts:
-     *   src/main/java → project root (3 levels up)
-     *   src/main      → project root (2 levels up)
-     *   src           → project root (1 level up)
-     * Falls back to the given path if none of those patterns match.
+     * Tries to find the actual project root from the given source directory.
+     * Handles common Maven/Gradle layouts like src/main/java and src/.
      */
     private static Path resolveProjectRoot(Path sourceDir) {
         Path p = sourceDir.toAbsolutePath().normalize();
 
-        // Best case: walk upward until Eclipse/Maven/Gradle project root
+        // Best case is to walk upward until Eclipse/Maven/Gradle project root
         Path cur = p;
         while (cur != null) {
             if (Files.exists(cur.resolve(".project")) ||
@@ -742,7 +722,7 @@ public class RejdDiagramView extends ViewPart {
             cur = cur.getParent();
         }
 
-        // Fallback: strip anything after /src/main/java
+        // Fallback is to strip anything after /src/main/java
         String normalized = p.toString().replace("\\", "/");
         String marker = "/src/main/java";
         int idx = normalized.indexOf(marker);
@@ -750,7 +730,7 @@ public class RejdDiagramView extends ViewPart {
             return java.nio.file.Paths.get(normalized.substring(0, idx));
         }
 
-        // Fallback: strip anything after /src
+        // Fallback again strip anything after /src
         marker = "/src";
         idx = normalized.indexOf(marker);
         if (idx >= 0) {
@@ -775,8 +755,6 @@ public class RejdDiagramView extends ViewPart {
         List<gwu.rejd.model.RelationshipModel> scopedRels = relFilter.filter(scope, allRels);
         return graphGen.generate(scoped, scopedRels);
     }
-
-    // ── Export ────────────────────────────────────────────────────────────────
 
     private void onExport() {
         if (browser == null || browser.isDisposed()) return;
@@ -863,7 +841,7 @@ public class RejdDiagramView extends ViewPart {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Utility/helper methods
 
     private List<MethodEntry> collectMethods(ProjectModel model) {
         List<MethodEntry> entries = new ArrayList<>();
@@ -948,7 +926,7 @@ public class RejdDiagramView extends ViewPart {
 
     @Override public void dispose() { super.dispose(); }
 
-    // ── Inner classes ─────────────────────────────────────────────────────────
+    // For Inner classes 
 
     private static final class MethodEntry {
         final String label, methodId;
