@@ -1,6 +1,13 @@
+/*
+File Name: LoginDialog.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: The file is used to make the login dialgue appear at the start of the program execution.
+*/
 
+// Package info
 package plugin.internal;
 
+// Import statements
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -15,8 +22,10 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.jface.dialogs.IMessageProvider;
 import org.eclipse.jface.dialogs.TitleAreaDialog;
 
-// Source: https://www.vogella.com/tutorials/EclipseDialogs/article.html
-
+/**
+* Class used to build the login dialog at the start of the program execution.
+* Source: https://www.vogella.com/tutorials/EclipseDialogs/article.html
+*/
 public class LoginDialog extends TitleAreaDialog 
 {
     private Text txtFirstName;
@@ -28,7 +37,7 @@ public class LoginDialog extends TitleAreaDialog
             super(parentShell);
     }
 
-
+    // Create Dialog Popup
     public void create() 
     {
         super.create();
@@ -36,6 +45,7 @@ public class LoginDialog extends TitleAreaDialog
         setMessage("Enter your Username", IMessageProvider.INFORMATION);
     }
 
+    // Create the dialog area
     protected Control createDialogArea(Composite parent) {
         Composite area = (Composite) super.createDialogArea(parent);
         Composite container = new Composite(area, SWT.NONE);
@@ -48,6 +58,7 @@ public class LoginDialog extends TitleAreaDialog
         return area;
     }
 
+    // Creates the first name labels and handles the data.
     private void createFirstName(Composite container) {
         Label lbtFirstName = new Label(container, SWT.NONE);
         lbtFirstName.setText("Name");
@@ -60,21 +71,25 @@ public class LoginDialog extends TitleAreaDialog
         txtFirstName.setLayoutData(dataFirstName);
     }
 
+    // Checks if the dialog is resizable
     @Override
     protected boolean isResizable() {
         return true;
     }
 
+    // Saves input
     private void saveInput() {
         firstName = txtFirstName.getText().trim();
     }
-    
+
+    // Checks if the user is done
     @Override
     protected void okPressed() {
         saveInput();
         super.okPressed();
     }
 
+    // Getter for the name value
     public String getFirstName() {
         return firstName;
     }
