@@ -1,7 +1,8 @@
 /*
 File Name: RelationshipModel.java
 Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
-Description: The file describes the relationship models.
+Description: This file Represents a relationship detected between two types,
+during static analysis of the Java project.
 */
 
 // Package info
@@ -13,8 +14,9 @@ import gwu.rejd.model.enums.RelationshipKind;
 import java.util.Objects;
 
 /**
-* RelationshipModel class defines objects to describe relationship between two objects.
-*/
+ * This is a immutable model used to store UML-style relationships
+ * such as inheritance, association, aggregation, etc.
+ */
 public final class RelationshipModel {
 
     private final String sourceFqn;
@@ -32,7 +34,10 @@ public final class RelationshipModel {
     public String targetName() { return targetName; }
     public RelationshipKind kind() { return kind; }
 
-    // Comparing two objects
+    /**
+     * Relationships are considered equal if all
+     * core relationship properties match.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -43,13 +48,13 @@ public final class RelationshipModel {
                 && kind == other.kind;
     }
 
-    // Hahses the data
+    // Needed so relationships can be safely stored, in hash-based collections like Set or Map.
     @Override
     public int hashCode() {
         return Objects.hash(sourceFqn, targetName, kind);
     }
 
-    // String representation of the object
+    // Helpful for debugging/logging relationship extraction.
     @Override
     public String toString() {
         return sourceFqn + " -[" + kind + "]-> " + targetName;
