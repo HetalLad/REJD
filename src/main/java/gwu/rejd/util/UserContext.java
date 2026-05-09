@@ -1,3 +1,8 @@
+/*
+File Name: UserContext.java
+Authors: Anirvinna Jain, Hetal Lad, Saptorshee Nag
+Description: Provides the current author name of the notes.
+*/
 package gwu.rejd.util;
 
 /**
@@ -13,14 +18,12 @@ public class UserContext {
 
     private UserContext() {}
 
-    /**
-     * Override the current user name.
-     */
+    // Override the current user name.
     public static void setCurrentUser(String name) {
         overrideUser = (name != null && !name.isBlank()) ? name.trim() : null;
     }
 
-    /** Returns the override name if set, otherwise the OS user name. */
+    // Returns the override name if set, otherwise the OS user name. */
     public static String getCurrentUser() {
         return overrideUser != null ? overrideUser : System.getProperty("user.name");
     }
